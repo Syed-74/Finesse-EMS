@@ -19,14 +19,36 @@ import { MsalProvider } from "@azure/msal-react";
 import { msalInstance } from "../../Frontend/src/AuthContext/msalConfig.js";
 import { BrowserRouter } from "react-router-dom";
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <MsalProvider instance={msalInstance}>
-          <App />
-        </MsalProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>,
-);
+// Initialize MSAL instance before rendering
+const initializeApp = async () => {
+  try {
+    await msalInstance.initialize();
+    console.log("MSAL initialized successfully");
+    
+    createRoot(document.getElementById("root")).render(
+      <StrictMode>
+        <BrowserRouter>
+          <MsalProvider instance={msalInstance}>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </MsalProvider>
+        </BrowserRouter>
+      </StrictMode>,
+    );
+  } catch (error) {
+    console.error("Failed to initialize MSAL:", error);
+    // Fallback rendering without MSAL
+    createRoot(document.getElementById("root")).render(
+      <StrictMode>
+        <BrowserRouter>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </BrowserRouter>
+      </StrictMode>,
+    );
+  }
+};
+
+initializeApp();

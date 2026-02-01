@@ -7,34 +7,102 @@ import { useMsal } from "@azure/msal-react";
 import { loginRequest } from "../../AuthContext/msalConfig.js"; // adjust path if needed
 
 const Login = () => {
-  const { Adminfetch } = useAuth();
+  const { Adminfetch, admin, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && admin) {
+      navigate("/Admindashboard", { replace: true });
+    }
+  }, [admin, loading, navigate]);
 
   // ---------------- NORMAL LOGIN ----------------
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
 
   // ---------------- SSO ----------------
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
+  const [ssoLoading, setSsoLoading] = useState(false);
 
-  const handleMicrosoftLogin = async () => {
-    await instance.loginPopup(loginRequest);
+  // Debug MSAL state
+  useEffect(() => {
+    console.log("MSAL Instance:", instance);
+    console.log("MSAL Accounts:", accounts);
+    console.log("MSAL In Progress:", inProgress);
+  }, [instance, accounts, inProgress]);
+
+  const handleMicrosoftRedirect = async () => {
+    try {
+      console.log("Initiating Microsoft redirect login...");
+      setError("");
+      setSsoLoading(true);
+      
+      // Use redirect with proper configuration
+      await instance.loginRedirect({
+        ...loginRequest,
+        redirectUri: "http://localhost:5173",
+        prompt: "select_account",
+        extraScopesToConsent: ["User.Read"],
+      });
+    } catch (err) {
+      console.error("Microsoft redirect login error:", err);
+      setError("Redirect login failed. Please try again.");
+      setSsoLoading(false);
+    }
   };
 
   useEffect(() => {
     if (accounts.length) handleSSOUser();
   }, [accounts]);
 
+  // Handle redirect response
+  useEffect(() => {
+    const handleRedirectResponse = async () => {
+      try {
+        // Wait for MSAL to be fully initialized
+        if (inProgress === 'startup') {
+          console.log("MSAL still initializing, waiting...");
+          return;
+        }
+
+        const response = await instance.handleRedirectPromise();
+        if (response) {
+          console.log("Redirect response received:", response);
+          // Clear any loading state from redirect
+          setSsoLoading(false);
+          setError("");
+          // SSO user will be handled by the accounts useEffect
+        }
+      } catch (err) {
+        console.error("Redirect response error:", err);
+        setSsoLoading(false);
+        // Don't show error for initialization issues
+        if (!err.errorMessage?.includes('uninitialized_public_client_application')) {
+          setError("Login redirect failed");
+        }
+      }
+    };
+
+    // Add a small delay to ensure MSAL is initialized
+    const timer = setTimeout(handleRedirectResponse, 200);
+    return () => clearTimeout(timer);
+  }, [instance, inProgress]);
+
   const handleSSOUser = async () => {
     try {
+      setSsoLoading(true);
+      console.log("Starting SSO user handling...");
+      
       const tokenRes = await instance.acquireTokenSilent({
         scopes: ["User.Read"],
         account: accounts[0],
       });
 
       const token = tokenRes.accessToken;
+      console.log("Acquired token successfully");
 
       const profile = await axios.get(
         "https://graph.microsoft.com/v1.0/me",
@@ -42,24 +110,59 @@ const Login = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
+      
+      console.log("Microsoft profile data:", profile.data);
+      
       // 👉 Send SSO user to backend (auto login / auto create)
+      console.log("Sending SSO data to backend...");
       const res = await axios.post(
-        "/api/auth/sso-login",
+        "http://localhost:5000/api/auth/sso-login",
         {
           name: profile.data.displayName,
           email: profile.data.mail || profile.data.userPrincipalName,
         },
-        { withCredentials: true }
+        { 
+          withCredentials: true,
+          timeout: 10000, // 10 second timeout
+        }
       );
 
-      localStorage.setItem("token", res.data.token);
+      console.log("Backend SSO response:", res.data);
 
-      await Adminfetch();
+      if (res.data.token) {
+        localStorage.setItem("token", res.data.token);
+        axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+        
+        // Fetch user profile to update auth context
+        const user = await Adminfetch();
+        
+        console.log("User after Adminfetch:", user);
 
-      navigate("/Admindashboard");
+        if (user) {
+          console.log("Navigating to admin dashboard...");
+          navigate("/Admindashboard", { replace: true });
+        } else {
+          console.error("SSO login succeeded but Adminfetch couldn't load profile");
+          setError("Login successful but failed to load user profile");
+        }
+      } else {
+        console.error("No token received from backend");
+        setError("Login failed - no token received");
+      }
     } catch (err) {
-      console.error("SSO Login failed", err);
+      console.error("SSO Login failed:", err);
+      
+      if (err.code === 'ECONNABORTED') {
+        setError("Login timeout - please check your connection and try again");
+      } else if (err.response?.status === 404) {
+        setError("SSO login endpoint not found - please contact administrator");
+      } else if (err.response?.status === 500) {
+        setError("Server error - please try again later");
+      } else {
+        setError(err.response?.data?.message || "Microsoft login failed. Please try again.");
+      }
+    } finally {
+      setSsoLoading(false);
     }
   };
 
@@ -78,7 +181,7 @@ const Login = () => {
     }
 
     try {
-      setLoading(true);
+      setFormLoading(true);
 
       const res = await axios.post(
         "http://localhost:5000/api/auth/login",
@@ -95,7 +198,7 @@ const Login = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Try again.");
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -134,17 +237,31 @@ const Login = () => {
               Sign in to your account
             </p>
 
-            {/* 🔵 MICROSOFT SSO BUTTON */}
+            {/* 🔵 MICROSOFT SSO BUTTON - REDIRECT */}
             <button
-              onClick={handleMicrosoftLogin}
-              className="w-full mb-6 py-4 border border-gray-300 rounded-xl font-semibold flex items-center justify-center gap-3 hover:bg-gray-50 transition"
+              onClick={handleMicrosoftRedirect}
+              disabled={ssoLoading}
+              className={`w-full mb-6 py-4 border border-gray-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition ${
+                ssoLoading
+                  ? "bg-gray-100 cursor-not-allowed" 
+                  : "hover:bg-gray-50"
+              }`}
             >
-              <img
-                src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
-                className="w-5 h-5"
-                alt="ms"
-              />
-              Sign in with Microsoft
+              {ssoLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-gray-400 border-t-blue-600 rounded-full animate-spin"></div>
+                  Signing in with Microsoft...
+                </>
+              ) : (
+                <>
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
+                    className="w-5 h-5"
+                    alt="ms"
+                  />
+                  Sign in with Microsoft
+                </>
+              )}
             </button>
 
             <div className="flex items-center my-6">
@@ -190,14 +307,14 @@ const Login = () => {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={formLoading}
                 className={`w-full py-4 rounded-xl text-white font-semibold text-lg ${
-                  loading
+                  formLoading
                     ? "bg-gray-400"
                     : "bg-indigo-600 hover:bg-indigo-700"
-                }`}
+                  }`}
               >
-                {loading ? "Signing in..." : "Sign In"}
+                {formLoading ? "Signing in..." : "Sign In"}
               </button>
             </form>
           </div>

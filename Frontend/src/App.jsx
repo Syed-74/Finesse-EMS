@@ -45,15 +45,22 @@ import Reports from "./pages/admin/Sidepages/Reports";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import Login from "./pages/auth/Login";
 import Settings from "./pages/admin/Sidepages/Settings";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/employeeDashboard" element={<EmployeeDashboard />} />
       <Route path="/" element={<Login />} />
-      <Route path="/Admindashboard" element={<AdminLayout />}>
+      <Route 
+        path="/Admindashboard" 
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Navigate to="/Admindashboard/dashboard" />} />
-
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="employees" element={<Employees />} />
         <Route path="attendance" element={<Attendance />} />
