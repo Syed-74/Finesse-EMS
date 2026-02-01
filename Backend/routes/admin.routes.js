@@ -2,6 +2,7 @@ import express from "express";
 import {
   registerAdmin,
   loginAdmin,
+  ssoLogin,
   getAdminProfile,
   updateAdminProfile,
   logoutAdmin,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
+router.post("/sso-login", ssoLogin); // Microsoft SSO login
 router.post("/logout", logoutAdmin);
 
 router.get("/profile", protectAdmin, getAdminProfile);

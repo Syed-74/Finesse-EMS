@@ -131,6 +131,69 @@ export const updateAdminProfile = async (req, res) => {
 };
 
 /* =========================
+   SSO LOGIN (Microsoft)
+========================= */
+export const ssoLogin = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    // ✅ Email domain restriction
+    if (!isAllowedEmail(email)) {
+      return res.status(400).json({
+        message:
+          "Email domain not allowed. Use @finesse-cs.tech or @andemail.com",
+      });
+    }
+
+    // Find existing admin or create new one
+    let admin = await Admin.findOne({ email });
+    
+    if (!admin) {
+      // Create new admin for SSO user
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0] || name;
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      admin = await Admin.create({
+        firstName,
+        lastName,
+        email,
+        mobileNumber: '', // Empty for SSO users
+        password: '', // No password for SSO users
+        ssoProvider: 'microsoft',
+        isActive: true,
+      });
+    } else {
+      // Update last login and ensure account is active
+      admin.isActive = true;
+      await admin.save();
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.json({
+      message: "SSO Login successful",
+      token,
+      admin: {
+        id: admin._id,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    console.error("SSO Login Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* =========================
    LOGOUT ADMIN
 ========================= */
 export const logoutAdmin = async (req, res) => {

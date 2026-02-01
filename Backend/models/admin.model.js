@@ -43,7 +43,20 @@ const adminSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
+      required: function() {
+        return !this.ssoProvider; // Password not required for SSO users
+      },
+    },
+
+    ssoProvider: {
+      type: String,
+      enum: ["microsoft", "google", null],
+      default: null,
+    },
+
+    ssoId: {
+      type: String,
+      sparse: true, // Allow multiple null values
     },
 
     role: {
