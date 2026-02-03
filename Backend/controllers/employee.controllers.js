@@ -5,7 +5,7 @@ import Employee from "../models/employee.model.js";
    HELPER: GENERATE EMPLOYEE ID
    EMP001, EMP002, ...
 ========================= */
-const generateEmployeeId = async () => {
+export const generateEmployeeId = async () => {
   const count = await Employee.countDocuments({ deletedAt: null });
   return `EMP${String(count + 1).padStart(3, "0")}`;
 };
@@ -35,10 +35,8 @@ export const createEmployee = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const employeeId = await generateEmployeeId();
 
     const employee = await Employee.create({
-      employeeId,
       firstName,
       lastName,
       email,
@@ -50,7 +48,7 @@ export const createEmployee = async (req, res) => {
       employmentType,
       workLocation,
       shift,
-      createdBy: req.admin._id, // ✅ Admin creates employee
+      createdBy: req.admin._id,
     });
 
     res.status(201).json({

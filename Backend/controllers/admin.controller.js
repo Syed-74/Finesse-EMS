@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
+import Employee from "../models/employee.model.js"; 
+import { generateEmployeeId } from "./employee.controllers.js";
 
 /* =========================
    EMAIL DOMAIN VALIDATION
@@ -145,32 +147,51 @@ export const ssoLogin = async (req, res) => {
       });
     }
 
-    // Find existing admin or create new one
+    // 1. Handle Admin/Auth User
     let admin = await Admin.findOne({ email });
-    
+    const nameParts = name.split(' ');
+    const firstName = nameParts[0] || name;
+    const lastName = nameParts.slice(1).join(' ') || '.';
+
     if (!admin) {
-      // Create new admin for SSO user
-      const nameParts = name.split(' ');
-      const firstName = nameParts[0] || name;
-      const lastName = nameParts.slice(1).join(' ') || '';
-      
       admin = await Admin.create({
         firstName,
         lastName,
         email,
-        mobileNumber: '', // Empty for SSO users
-        password: '', // No password for SSO users
+        mobileNumber: '', 
+        password: '', 
         ssoProvider: 'microsoft',
         isActive: true,
-        role:"employee"
+        role: "employee"
       });
     } else {
-      // Update last login and ensure account is active
       admin.isActive = true;
+      if (!admin.firstName) { 
+         admin.firstName = firstName;
+         admin.lastName = lastName;
+      }
       await admin.save();
     }
 
-    // Generate JWT token
+    // 2. Handle Employee Record (Sync)
+    let employee = await Employee.findOne({ email });
+    if (!employee) {
+       console.log("Auto-creating employee record for SSO user:", email);
+      //  const employeeId = await generateEmployeeId();
+       employee = await Employee.create({
+         firstName,
+         lastName,
+         email,
+         designation: "Employee",
+         department: "General",
+         dateOfJoining: new Date(),
+         employmentType: "FULL_TIME",
+         isActive: true,
+         password: "" // Optional now
+       });
+    }
+
+    // Generate Token
     const token = jwt.sign(
       { id: admin._id, role: admin.role },
       process.env.JWT_SECRET,

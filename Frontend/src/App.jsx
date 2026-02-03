@@ -159,7 +159,6 @@ import { Routes, Route } from "react-router-dom";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 // import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import Login from "./pages/auth/Login";
-import Employee from "./pages/admin/Sidepages/Employees";
 import Attendance from "../src/pages/admin/Sidepages/Attendance";
 import Leaves from "../src/pages/admin/Sidepages/Leaves";
 import Payroll from "../src/pages/admin/Sidepages/Payroll";
@@ -173,6 +172,7 @@ import EmployeeAttendance from "./pages/employee/EmployeeAttendance";
 import EmployeeSettings from "./pages/employee/EmployeeSettings";
 import Communication from "./pages/admin/Sidepages/Communication";
 import EmployeeNotifications from "./pages/employee/EmployeeNotifications";
+import Employees from "./pages/admin/Sidepages/Employees";
 
 
 function App() {
@@ -183,7 +183,7 @@ function App() {
       {/* ADMIN */}
       <Route element={<DashboardLayout role="admin" />}>
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/employees" element={<Employee />} />
+        <Route path="/admin/employees" element={<Employees />} />
         <Route path="/admin/attendance" element={<Attendance />} />
         <Route path="/admin/leaves" element={<Leaves />} />
         <Route path="/admin/payroll" element={<Payroll />} />

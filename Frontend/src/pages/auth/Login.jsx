@@ -193,10 +193,13 @@ const Login = () => {
     try {
       setFormLoading(true);
 
+      // Normalize email to prevent failed matches due to case/whitespace
+      const normalizedEmail = formData.username.trim().toLowerCase();
+
       const res = await axios.post(
         "http://localhost:5000/api/auth/login",
         {
-          email: formData.username,
+          email: normalizedEmail,
           password: formData.password,
         },
         { withCredentials: true }
@@ -204,9 +207,16 @@ const Login = () => {
 
       localStorage.setItem("token", res.data.token);
       await Adminfetch();
-      navigate("/");
+      
+      if (res.data.admin.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/employee");
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Try again.");
+      console.error("Login Error:", err);
+      const msg = err.response?.data?.message || "Login failed. Check your credentials.";
+      setError(msg);
     } finally {
       setFormLoading(false);
     }

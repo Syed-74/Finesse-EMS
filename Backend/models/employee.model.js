@@ -5,12 +5,12 @@ const employeeSchema = new mongoose.Schema(
     /* =========================
        🆔 BASIC IDENTIFICATION
     ========================= */
-    employeeId: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
+    // employeeId: {
+    //   type: String,
+    //   required: true,
+    //   unique: true,
+    //   trim: true,
+    // },
 
     firstName: {
       type: String,
@@ -46,8 +46,8 @@ const employeeSchema = new mongoose.Schema(
     ========================= */
     password: {
       type: String,
-      required: true,
-      select: false, // never return password by default
+      required: false,
+      select: false,
     },
 
     role: {
