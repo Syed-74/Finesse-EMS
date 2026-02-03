@@ -11,11 +11,16 @@ const Login = () => {
   const navigate = useNavigate();
 
   // Redirect if already authenticated
-  useEffect(() => {
-    if (!loading && admin) {
-      navigate("/Admindashboard", { replace: true });
-    }
-  }, [admin, loading, navigate]);
+ useEffect(() => {
+  if (loading || !admin) return;
+
+  if (admin.role === "admin") {
+    navigate("/admin", { replace: true });
+  } else if (admin.role === "employee") {
+    navigate("/employee", { replace: true });
+  }
+}, [admin, loading, navigate]);
+
 
   // ---------------- NORMAL LOGIN ----------------
   const [formData, setFormData] = useState({ username: "", password: "" });
@@ -76,6 +81,7 @@ const Login = () => {
           setError("");
           // SSO user will be handled by the accounts useEffect
         }
+        console.log(handleRedirectResponse, "No redirect response to handle");
       } catch (err) {
         console.error("Redirect response error:", err);
         setSsoLoading(false);
@@ -120,6 +126,7 @@ const Login = () => {
         {
           name: profile.data.displayName,
           email: profile.data.mail || profile.data.userPrincipalName,
+
         },
         { 
           withCredentials: true,
@@ -138,9 +145,12 @@ const Login = () => {
         
         console.log("User after Adminfetch:", user);
 
-        if (user) {
+        if (user.role === "employee") {
+          console.log("Navigating to employee dashboard...");
+          navigate("/employee", { replace: true });
+        } else if (user.role === "admin") {
           console.log("Navigating to admin dashboard...");
-          navigate("/Admindashboard", { replace: true });
+          navigate("/admin", { replace: true });
         } else {
           console.error("SSO login succeeded but Adminfetch couldn't load profile");
           setError("Login successful but failed to load user profile");
@@ -194,7 +204,7 @@ const Login = () => {
 
       localStorage.setItem("token", res.data.token);
       await Adminfetch();
-      navigate("/Admindashboard");
+      navigate("/");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Try again.");
     } finally {

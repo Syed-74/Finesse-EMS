@@ -162,6 +162,7 @@ export const ssoLogin = async (req, res) => {
         password: '', // No password for SSO users
         ssoProvider: 'microsoft',
         isActive: true,
+        role:"employee"
       });
     } else {
       // Update last login and ensure account is active
