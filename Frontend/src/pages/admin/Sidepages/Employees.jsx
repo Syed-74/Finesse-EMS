@@ -411,15 +411,7 @@ export default function Employees() {
                 </div>
              </div>
 
-             {/* <div className="pt-2 border-t border-gray-100">
-                <label className="block text-xs font-semibold text-red-600 uppercase mb-1">Emergency Contact</label>
-                <input 
-                   className="w-full border border-red-100 bg-red-50 rounded-lg p-2.5 focus:ring-2 focus:ring-red-200 outline-none"
-                   value={currentEmployee.emergencyContact}
-                   onChange={e => setCurrentEmployee({...currentEmployee, emergencyContact: e.target.value})}
-                   placeholder="Name & Phone Number"
-                />
-             </div> */}
+             
           </div>
         );
       default: return null;

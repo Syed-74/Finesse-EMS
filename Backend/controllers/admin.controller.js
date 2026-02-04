@@ -117,9 +117,16 @@ export const getAdminProfile = async (req, res) => {
 ========================= */
 export const updateAdminProfile = async (req, res) => {
   try {
+    const updates = { ...req.body };
+
+    // If file uploaded, add path to updates
+    if (req.file) {
+      updates.profileImage = `/uploads/${req.file.filename}`;
+    }
+
     const updatedAdmin = await Admin.findByIdAndUpdate(
       req.admin.id,
-      req.body,
+      updates,
       { new: true }
     ).select("-password");
 
