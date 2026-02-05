@@ -7,17 +7,17 @@ import {
   getAllAttendance,
   updateAttendance
 } from "../controllers/attendance.controller.js";
-
 import { protectAdmin } from "../middleware/adminAuth.middleware.js";
+import { protectEmployee } from "../middleware/employeeAuth.middleware.js";
 import upload from "../middleware/upload.middleware.js";
 
 const router = express.Router();
 
 
 // Employee actions
-router.post("/punch-in", protectAdmin, upload.single("selfie"), punchIn);
-router.post("/punch-out", protectAdmin, punchOut);
-router.get("/my-attendance", protectAdmin, getMyAttendance);
+router.post("/punch-in", protectEmployee, upload.single("selfie"), punchIn);
+router.post("/punch-out", protectEmployee, punchOut);
+router.get("/my-attendance", protectEmployee, getMyAttendance);
 
 
 // Admin view
