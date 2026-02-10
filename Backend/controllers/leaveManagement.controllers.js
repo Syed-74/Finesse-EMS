@@ -58,14 +58,21 @@ export const createLeaveProfile = async (req, res) => {
       employeeName,
       departmentId,
       leaveBalance: {
-        totalLeaves: 30, // Default Policy
+        totalLeaves: 30,
         usedLeaves: 0,
         remainingLeaves: 30,
         leaveTypeWiseBalance: {
           Casual: 10,
           Sick: 10,
           Paid: 10,
+          Unpaid: 0,
         },
+        detailedBalance: {
+          Casual: { total: 10, used: 0 },
+          Sick: { total: 10, used: 0 },
+          Paid: { total: 10, used: 0 },
+          Unpaid: { total: 0, used: 0 },
+        }
       },
     });
 
@@ -103,10 +110,19 @@ export const applyLeave = async (req, res) => {
     }
 
     // 2. Check Balance
-    const currentBalance = profile.leaveBalance.leaveTypeWiseBalance[leaveType] || 0;
-    if (currentBalance < calculatedDays) {
+    const balanceInfo = profile.leaveBalance;
+    let available = 0;
+    
+    // Support both old and new data structures
+    if (balanceInfo.detailedBalance && balanceInfo.detailedBalance[leaveType]) {
+      available = (balanceInfo.detailedBalance[leaveType].total || 0) - (balanceInfo.detailedBalance[leaveType].used || 0);
+    } else {
+      available = balanceInfo.leaveTypeWiseBalance[leaveType] || 0;
+    }
+
+    if (available < calculatedDays) {
       return res.status(400).json({ 
-        message: `Insufficient ${leaveType} leave balance. Available: ${currentBalance}, Requested: ${calculatedDays}` 
+        message: `Insufficient ${leaveType} leave balance. Available: ${available}, Requested: ${calculatedDays}` 
       });
     }
 
@@ -165,8 +181,16 @@ export const getEmployeeLeaves = async (req, res) => {
         employeeId,
         employeeName: "Employee", 
         leaveBalance: {
-           totalLeaves: 30, usedLeaves: 0, remainingLeaves: 30,
-           leaveTypeWiseBalance: { Casual: 10, Sick: 10, Paid: 10 }
+           totalLeaves: 30, 
+           usedLeaves: 0, 
+           remainingLeaves: 30,
+           leaveTypeWiseBalance: { Casual: 10, Sick: 10, Paid: 10, Unpaid: 0 },
+           detailedBalance: {
+             Casual: { total: 10, used: 0 },
+             Sick: { total: 10, used: 0 },
+             Paid: { total: 10, used: 0 },
+             Unpaid: { total: 0, used: 0 }
+           }
         }
       });
     }
@@ -272,12 +296,31 @@ export const updateLeaveStatus = async (req, res) => {
     if (status === "Approved" && oldStatus !== "Approved") {
       profile.leaveBalance.usedLeaves += leave.totalDays;
       profile.leaveBalance.remainingLeaves -= leave.totalDays;
+      
+      // Update Detailed Balance
+      if (!profile.leaveBalance.detailedBalance) profile.leaveBalance.detailedBalance = {};
+      if (!profile.leaveBalance.detailedBalance[leave.leaveType]) {
+        profile.leaveBalance.detailedBalance[leave.leaveType] = { 
+          total: profile.leaveBalance.leaveTypeWiseBalance[leave.leaveType] || 0, 
+          used: 0 
+        };
+      }
+      profile.leaveBalance.detailedBalance[leave.leaveType].used += leave.totalDays;
+      
+      // Update Legacy Balance for compatibility
       profile.leaveBalance.leaveTypeWiseBalance[leave.leaveType] -= leave.totalDays;
     }
 
     if (oldStatus === "Approved" && (status === "Rejected" || status === "Cancelled")) {
       profile.leaveBalance.usedLeaves -= leave.totalDays;
       profile.leaveBalance.remainingLeaves += leave.totalDays;
+      
+      // Update Detailed Balance
+      if (profile.leaveBalance.detailedBalance && profile.leaveBalance.detailedBalance[leave.leaveType]) {
+        profile.leaveBalance.detailedBalance[leave.leaveType].used -= leave.totalDays;
+      }
+      
+      // Update Legacy Balance
       profile.leaveBalance.leaveTypeWiseBalance[leave.leaveType] += leave.totalDays;
     }
 

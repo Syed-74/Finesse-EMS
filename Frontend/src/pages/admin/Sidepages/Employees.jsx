@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { 
-  Search, 
-  Filter, 
-  Edit3, 
-  Trash2, 
-  UserCheck, 
+import {
+  Search,
+  Filter,
+  Edit3,
+  Trash2,
+  UserCheck,
   UserX,
   ChevronDown,
   ChevronUp,
@@ -16,7 +16,8 @@ import {
   MapPin,
   Clock,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Calendar
 } from "lucide-react";
 
 // Configure base API_URL
@@ -28,12 +29,13 @@ const STEPS = [
   { id: 2, title: "Professional", icon: Briefcase },
   { id: 3, title: "Work Config", icon: Clock },
   { id: 4, title: "Address", icon: MapPin },
+  { id: 5, title: "Leave Allocation", icon: Calendar },
 ];
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -45,7 +47,7 @@ export default function Employees() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState(null);
-  const [confirmAction, setConfirmAction] = useState({ type: "", action: () => {} });
+  const [confirmAction, setConfirmAction] = useState({ type: "", action: () => { } });
 
   // Fetch Employees
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function Employees() {
     try {
       setLoading(true);
       const res = await axios.get(API_URL);
-      setEmployees(Array.isArray(res.data) ? res.data : []); 
+      setEmployees(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to fetch employees", err);
     } finally {
@@ -70,15 +72,15 @@ export default function Employees() {
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      result = result.filter(e => 
-        e.firstName?.toLowerCase().includes(lower) || 
+      result = result.filter(e =>
+        e.firstName?.toLowerCase().includes(lower) ||
         e.lastName?.toLowerCase().includes(lower) ||
         e.email?.toLowerCase().includes(lower)
       );
     }
 
     if (statusFilter !== "All") {
-      result = result.filter(e => 
+      result = result.filter(e =>
         statusFilter === "Active" ? e.isActive : !e.isActive
       );
     }
@@ -100,6 +102,20 @@ export default function Employees() {
     return result;
   }, [employees, searchTerm, statusFilter, roleFilter, sortConfig]);
 
+  // Validation
+  const validateCurrentStep = () => {
+    if (currentStep === 5) {
+      const invalid = Object.values(currentEmployee.leaveAllocation).some(
+        data => data.total < data.used
+      );
+      if (invalid) {
+        alert("Total leaves cannot be less than used leaves.");
+        return false;
+      }
+    }
+    return true;
+  };
+
   // Handlers
   const handleSort = (key) => {
     setSortConfig(current => ({
@@ -111,7 +127,7 @@ export default function Employees() {
   const handleSave = async () => {
     try {
       const id = currentEmployee._id || currentEmployee.employeeId;
-      if(!id) return;
+      if (!id) return;
 
       // Construct full payload based on steps
       const payload = {
@@ -133,6 +149,7 @@ export default function Employees() {
         country: currentEmployee.country,
         emergencyContact: currentEmployee.emergencyContact,
         isActive: currentEmployee.isActive,
+        leaveAllocation: currentEmployee.leaveAllocation, // Added leave allocation
       };
 
       await axios.put(`${API_URL}/${id}`, payload);
@@ -185,6 +202,12 @@ export default function Employees() {
       country: emp.country || "",
       emergencyContact: emp.emergencyContact || "",
       dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : "",
+      leaveAllocation: emp.leaveAllocation || {
+        Casual: { total: 0, used: 0 },
+        Sick: { total: 0, used: 0 },
+        Paid: { total: 0, used: 0 },
+        Unpaid: { total: 0, used: 0 }
+      },
     });
     setCurrentStep(1);
     setIsEditOpen(true);
@@ -220,49 +243,49 @@ export default function Employees() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="col-span-2 md:col-span-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">First Name</label>
-              <input 
+              <input
                 className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
-                value={currentEmployee.firstName} 
+                value={currentEmployee.firstName}
                 readOnly
               />
             </div>
             <div className="col-span-2 md:col-span-1">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Last Name</label>
-              <input 
+              <input
                 className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
-                value={currentEmployee.lastName} 
+                value={currentEmployee.lastName}
                 readOnly
               />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email</label>
-              <input 
+              <input
                 className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
-                value={currentEmployee.email} 
+                value={currentEmployee.email}
                 readOnly
               />
             </div>
             <div className="col-span-2 md:col-span-1">
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Mobile Number</label>
-              <input 
+              <input
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.mobileNumber}
-                onChange={e => setCurrentEmployee({...currentEmployee, mobileNumber: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, mobileNumber: e.target.value })}
                 placeholder="+1 234 567 890"
               />
             </div>
             <div className="col-span-2 md:col-span-1">
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Profile Status</label>
-               <div className="flex gap-4 mt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" checked={currentEmployee.isActive} onChange={() => setCurrentEmployee({...currentEmployee, isActive: true})} className="accent-blue-600 w-4 h-4"/>
-                    <span className="text-sm">Active</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" checked={!currentEmployee.isActive} onChange={() => setCurrentEmployee({...currentEmployee, isActive: false})} className="accent-red-600 w-4 h-4"/>
-                    <span className="text-sm">Inactive</span>
-                  </label>
-               </div>
+              <div className="flex gap-4 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={currentEmployee.isActive} onChange={() => setCurrentEmployee({ ...currentEmployee, isActive: true })} className="accent-blue-600 w-4 h-4" />
+                  <span className="text-sm">Active</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={!currentEmployee.isActive} onChange={() => setCurrentEmployee({ ...currentEmployee, isActive: false })} className="accent-red-600 w-4 h-4" />
+                  <span className="text-sm">Inactive</span>
+                </label>
+              </div>
             </div>
           </div>
         );
@@ -271,26 +294,26 @@ export default function Employees() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Designation / Role</label>
-              <input 
+              <input
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.designation}
-                onChange={e => setCurrentEmployee({...currentEmployee, designation: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, designation: e.target.value })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Department</label>
-              <input 
-                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                 value={currentEmployee.department}
-                 onChange={e => setCurrentEmployee({...currentEmployee, department: e.target.value})}
+              <input
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                value={currentEmployee.department}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, department: e.target.value })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Employment Type</label>
-              <select 
+              <select
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.employmentType}
-                onChange={e => setCurrentEmployee({...currentEmployee, employmentType: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, employmentType: e.target.value })}
               >
                 <option value="FULL_TIME">Full Time</option>
                 <option value="PART_TIME">Part Time</option>
@@ -300,19 +323,19 @@ export default function Employees() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Date of Joining</label>
-              <input 
+              <input
                 type="date"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.dateOfJoining}
-                onChange={e => setCurrentEmployee({...currentEmployee, dateOfJoining: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, dateOfJoining: e.target.value })}
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Work Location</label>
-              <select 
+              <select
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.workLocation}
-                onChange={e => setCurrentEmployee({...currentEmployee, workLocation: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, workLocation: e.target.value })}
               >
                 <option value="OFFICE">Office</option>
                 <option value="REMOTE">Remote</option>
@@ -321,10 +344,10 @@ export default function Employees() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Shift</label>
-              <select 
+              <select
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
                 value={currentEmployee.shift}
-                onChange={e => setCurrentEmployee({...currentEmployee, shift: e.target.value})}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, shift: e.target.value })}
               >
                 <option value="DAY">Day Shift</option>
                 <option value="NIGHT">Night Shift</option>
@@ -336,82 +359,161 @@ export default function Employees() {
       case 3: // Work Config
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-             <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-between">
-                <div>
-                   <h4 className="font-semibold text-sm">Attendance Tracking</h4>
-                   <p className="text-xs text-gray-500">Require daily check-in/out</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" checked={currentEmployee.attendanceRequired} onChange={e => setCurrentEmployee({...currentEmployee, attendanceRequired: e.target.checked})} />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-             </div>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-sm">Attendance Tracking</h4>
+                <p className="text-xs text-gray-500">Require daily check-in/out</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={currentEmployee.attendanceRequired} onChange={e => setCurrentEmployee({ ...currentEmployee, attendanceRequired: e.target.checked })} />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
 
-             <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Leave Balance (Days)</label>
-                <input 
-                  type="number"
-                  className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={currentEmployee.leaveBalance}
-                  onChange={e => setCurrentEmployee({...currentEmployee, leaveBalance: Number(e.target.value)})}
-                />
-             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Leave Balance (Days)</label>
+              <input
+                type="number"
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                value={currentEmployee.leaveBalance}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, leaveBalance: Number(e.target.value) })}
+              />
+            </div>
 
-             <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">Weekly Off Days</label>
-                <div className="flex flex-wrap gap-2">
-                   {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map(day => (
-                      <button 
-                        key={day}
-                        onClick={() => {
-                          const offs = currentEmployee.weeklyOff.includes(day) 
-                             ? currentEmployee.weeklyOff.filter(d => d !== day)
-                             : [...currentEmployee.weeklyOff, day];
-                          setCurrentEmployee({...currentEmployee, weeklyOff: offs});
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                          currentEmployee.weeklyOff.includes(day) 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                        }`}
-                      >
-                         {day.slice(0,3)}
-                      </button>
-                   ))}
-                </div>
-             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">Weekly Off Days</label>
+              <div className="flex flex-wrap gap-2">
+                {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map(day => (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      const offs = currentEmployee.weeklyOff.includes(day)
+                        ? currentEmployee.weeklyOff.filter(d => d !== day)
+                        : [...currentEmployee.weeklyOff, day];
+                      setCurrentEmployee({ ...currentEmployee, weeklyOff: offs });
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${currentEmployee.weeklyOff.includes(day)
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                      }`}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         );
       case 4: // Address
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-             <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Street Address</label>
-                <textarea 
-                   rows="2"
-                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                   value={currentEmployee.address}
-                   onChange={e => setCurrentEmployee({...currentEmployee, address: e.target.value})}
-                   placeholder="123 Main St..."
-                />
-             </div>
-             
-             <div className="grid grid-cols-2 gap-4">
-                <div>
-                   <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">City</label>
-                   <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.city} onChange={e => setCurrentEmployee({...currentEmployee, city: e.target.value})} />
-                </div>
-                <div>
-                   <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">State</label>
-                   <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.state} onChange={e => setCurrentEmployee({...currentEmployee, state: e.target.value})} />
-                </div>
-                <div className="col-span-2">
-                   <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Country</label>
-                   <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.country} onChange={e => setCurrentEmployee({...currentEmployee, country: e.target.value})} />
-                </div>
-             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Street Address</label>
+              <textarea
+                rows="2"
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                value={currentEmployee.address}
+                onChange={e => setCurrentEmployee({ ...currentEmployee, address: e.target.value })}
+                placeholder="123 Main St..."
+              />
+            </div>
 
-             
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">City</label>
+                <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.city} onChange={e => setCurrentEmployee({ ...currentEmployee, city: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">State</label>
+                <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.state} onChange={e => setCurrentEmployee({ ...currentEmployee, state: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Country</label>
+                <input className="w-full border border-gray-300 rounded-lg p-2.5" value={currentEmployee.country} onChange={e => setCurrentEmployee({ ...currentEmployee, country: e.target.value })} />
+              </div>
+            </div>
+
+
+          </div>
+        );
+      case 5: // Leave Allocation
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(currentEmployee.leaveAllocation).map(([type, data]) => (
+                <div key={type} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-200 transition-all">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-bold text-gray-800">{type} Leave</h4>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${type === 'Sick' ? 'bg-red-50 text-red-600' :
+                      type === 'Casual' ? 'bg-blue-50 text-blue-600' :
+                        type === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'
+                      }`}>
+                      Allocation
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Leaves</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={data.total}
+                        onChange={e => {
+                          const newVal = Math.max(0, parseInt(e.target.value) || 0);
+                          setCurrentEmployee({
+                            ...currentEmployee,
+                            leaveAllocation: {
+                              ...currentEmployee.leaveAllocation,
+                              [type]: { ...data, total: newVal }
+                            }
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div className="bg-gray-50 p-2 rounded-lg">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Used</p>
+                        <p className="text-sm font-semibold text-gray-700">{data.used}</p>
+                      </div>
+                      <div className={`${data.total - data.used < 0 ? 'bg-red-50' : 'bg-blue-50'} p-2 rounded-lg`}>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Remaining</p>
+                        <p className={`text-sm font-semibold ${data.total - data.used < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                          {data.total - data.used}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary Card */}
+            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+              <div className="relative z-10 flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider mb-1">Total Annual Allocation</p>
+                  <h3 className="text-3xl font-bold">
+                    {Object.values(currentEmployee.leaveAllocation).reduce((acc, curr) => acc + curr.total, 0)} Days
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider mb-1">Available to Employee</p>
+                  <p className="text-xl font-semibold">
+                    {Object.values(currentEmployee.leaveAllocation).reduce((acc, curr) => acc + (curr.total - curr.used), 0)} Available
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {!currentEmployee.isActive && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-700 text-sm">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">⚠️</div>
+                <p>Employee is currently <strong>Inactive</strong>. Leave allocation will be saved but balances will only be accessible once reactivated.</p>
+              </div>
+            )}
           </div>
         );
       default: return null;
@@ -419,16 +521,15 @@ export default function Employees() {
   };
 
   const StatusBadge = ({ active }) => (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-      active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-    }`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+      }`}>
       {active ? 'Active' : 'Inactive'}
     </span>
   );
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -437,7 +538,7 @@ export default function Employees() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={fetchEmployees} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
-            <Filter className="w-5 h-5" /> 
+            <Filter className="w-5 h-5" />
           </button>
           <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-all">
             <Download className="w-4 h-4" /> Export
@@ -449,7 +550,7 @@ export default function Employees() {
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input 
+          <input
             type="text"
             placeholder="Search by name or email..."
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -457,7 +558,7 @@ export default function Employees() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
+
         <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
           <select className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="All">All Status</option>
@@ -481,7 +582,7 @@ export default function Employees() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('firstName')}>
-                  <div className="flex items-center gap-2">Name {sortConfig.key === 'firstName' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>)}</div>
+                  <div className="flex items-center gap-2">Name {sortConfig.key === 'firstName' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}</div>
                 </th>
                 <th className="px-6 py-4 font-semibold text-gray-700 hidden lg:table-cell">Contact</th>
                 <th className="px-6 py-4 font-semibold text-gray-700">Role / Dept</th>
@@ -527,36 +628,36 @@ export default function Employees() {
             </tbody>
           </table>
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 text-sm text-gray-500 flex justify-between">
-             <span>Showing {filteredEmployees.length} of {employees.length} employees</span>
+            <span>Showing {filteredEmployees.length} of {employees.length} employees</span>
           </div>
         </div>
       </div>
-      
-       {/* Mobile Cards Section */}
+
+      {/* Mobile Cards Section */}
       <div className="md:hidden space-y-4">
-         {filteredEmployees.map((emp) => (
-            <div key={emp._id || emp.employeeId} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
-              <div className="flex items-start justify-between">
-                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">{emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}</div>
-                    <div>
-                       <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
-                       <div className="text-xs text-gray-500">{emp.email}</div>
-                    </div>
-                 </div>
-                 <StatusBadge active={emp.isActive} />
+        {filteredEmployees.map((emp) => (
+          <div key={emp._id || emp.employeeId} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">{emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}</div>
+                <div>
+                  <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
+                  <div className="text-xs text-gray-500">{emp.email}</div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                 <div><span className="text-gray-500 text-xs uppercase">Role</span><p className="font-medium text-gray-800">{emp.designation || '-'}</p></div>
-                 <div><span className="text-gray-500 text-xs uppercase">Dept</span><p className="font-medium text-gray-800">{emp.department || '-'}</p></div>
-              </div>
-              <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
-                 <button onClick={() => openEdit(emp)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded text-sm font-medium">Edit</button>
-                 <button onClick={() => confirmActionModal("status", emp)} className={`flex-1 py-1.5 text-sm font-medium rounded ${emp.isActive ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'}`}>{emp.isActive ? "Deactivate" : "Activate"}</button>
-                 <button onClick={() => confirmActionModal("delete", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-medium">Delete</button>
-              </div>
+              <StatusBadge active={emp.isActive} />
             </div>
-         ))}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><span className="text-gray-500 text-xs uppercase">Role</span><p className="font-medium text-gray-800">{emp.designation || '-'}</p></div>
+              <div><span className="text-gray-500 text-xs uppercase">Dept</span><p className="font-medium text-gray-800">{emp.department || '-'}</p></div>
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
+              <button onClick={() => openEdit(emp)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded text-sm font-medium">Edit</button>
+              <button onClick={() => confirmActionModal("status", emp)} className={`flex-1 py-1.5 text-sm font-medium rounded ${emp.isActive ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'}`}>{emp.isActive ? "Deactivate" : "Activate"}</button>
+              <button onClick={() => confirmActionModal("delete", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-medium">Delete</button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Stepper Edit Modal */}
@@ -564,7 +665,7 @@ export default function Employees() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsEditOpen(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
+
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <div>
@@ -576,32 +677,32 @@ export default function Employees() {
 
             {/* Stepper Header */}
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 overflow-x-auto">
-               <div className="flex items-center justify-between min-w-[300px]">
-                 {STEPS.map((step, idx) => {
-                   const isActive = step.id === currentStep;
-                   const isCompleted = step.id < currentStep;
-                   const Icon = step.icon;
+              <div className="flex items-center justify-between min-w-[300px]">
+                {STEPS.map((step, idx) => {
+                  const isActive = step.id === currentStep;
+                  const isCompleted = step.id < currentStep;
+                  const Icon = step.icon;
 
-                   return (
-                     <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
-                        <div 
-                          className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300 border-2 
-                            ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110' : 
-                              isCompleted ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}`}
-                        >
-                          {isCompleted ? <CheckCircle2 className="w-5 h-5"/> : <Icon className="w-5 h-5" />}
-                        </div>
-                        <span className={`text-xs font-semibold ${isActive ? 'text-blue-700' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}>
-                          {step.title}
-                        </span>
-                        {/* Connecting Line (except last) */}
-                        {idx !== STEPS.length - 1 && (
-                          <div className={`hidden md:block absolute top-5 left-1/2 w-full h-[2px] -z-10 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
-                        )}
-                     </div>
-                   );
-                 })}
-               </div>
+                  return (
+                    <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300 border-2 
+                            ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110' :
+                            isCompleted ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}`}
+                      >
+                        {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                      </div>
+                      <span className={`text-xs font-semibold ${isActive ? 'text-blue-700' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}>
+                        {step.title}
+                      </span>
+                      {/* Connecting Line (except last) */}
+                      {idx !== STEPS.length - 1 && (
+                        <div className={`hidden md:block absolute top-5 left-1/2 w-full h-[2px] -z-10 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Modal Content - Scrollable */}
@@ -611,32 +712,32 @@ export default function Employees() {
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-gray-100 flex justify-between bg-gray-50">
-               {currentStep > 1 ? (
-                 <button 
+              {currentStep > 1 ? (
+                <button
                   onClick={() => setCurrentStep(currentStep - 1)}
                   className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-all"
-                 >
-                   <ArrowLeft className="w-4 h-4"/> Back
-                 </button>
-               ) : (
-                 <div /> // Spacer
-               )}
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
+              ) : (
+                <div /> // Spacer
+              )}
 
-               {currentStep < STEPS.length ? (
-                 <button 
-                  onClick={() => setCurrentStep(currentStep + 1)}
+              {currentStep < STEPS.length ? (
+                <button
+                  onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)}
                   className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md transition-all"
-                 >
-                   Next <ArrowRight className="w-4 h-4"/>
-                 </button>
-               ) : (
-                 <button 
+                >
+                  Next <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
                   onClick={handleSave}
                   className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow-md transition-all"
-                 >
-                   Save Changes <CheckCircle2 className="w-4 h-4"/>
-                 </button>
-               )}
+                >
+                  Save Changes <CheckCircle2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
           </div>
@@ -649,9 +750,9 @@ export default function Employees() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsConfirmOpen(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto text-red-600">
-              {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6"/> : <UserX className="w-6 h-6"/>}
+              {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6" /> : <UserX className="w-6 h-6" />}
             </div>
-            
+
             <div className="text-center">
               <h3 className="text-lg font-bold text-gray-900">{confirmAction.title}</h3>
               <p className="text-sm text-gray-500 mt-2">{confirmAction.message}</p>

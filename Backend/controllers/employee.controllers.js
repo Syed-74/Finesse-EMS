@@ -1,5 +1,7 @@
 import bcrypt from "bcryptjs";
 import Employee from "../models/employee.model.js";
+import LeaveManagement from "../models/leaveManagement.model.js";
+import Admin from "../models/admin.model.js";
 
 /* =========================
    HELPER: GENERATE EMPLOYEE ID
@@ -108,6 +110,49 @@ export const updateEmployee = async (req, res) => {
 
     if (!updatedEmployee) {
       return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // ✅ Sync Leave Allocation with LeaveManagement model if provided
+    if (req.body.leaveAllocation) {
+      const allocation = req.body.leaveAllocation;
+      
+      // Find the corresponding Auth record to use its ID for syncing
+      const authRecord = await Admin.findOne({ email: updatedEmployee.email });
+      const targetId = authRecord ? authRecord._id : updatedEmployee._id;
+
+      // Calculate totals
+      let total = 0;
+      let used = 0;
+      const typeWise = {};
+      const detailed = {};
+
+      Object.entries(allocation).forEach(([type, data]) => {
+        total += Number(data.total) || 0;
+        used += Number(data.used) || 0;
+        typeWise[type] = (Number(data.total) || 0) - (Number(data.used) || 0);
+        detailed[type] = { 
+          total: Number(data.total) || 0, 
+          used: Number(data.used) || 0 
+        };
+      });
+
+      await LeaveManagement.findOneAndUpdate(
+        { employeeId: targetId },
+        {
+          $set: {
+            employeeId: targetId,
+            employeeName: `${updatedEmployee.firstName} ${updatedEmployee.lastName}`,
+            leaveBalance: {
+              totalLeaves: total,
+              usedLeaves: used,
+              remainingLeaves: total - used,
+              leaveTypeWiseBalance: typeWise,
+              detailedBalance: detailed
+            }
+          }
+        },
+        { upsert: true, new: true }
+      );
     }
 
     res.json({

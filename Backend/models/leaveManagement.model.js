@@ -29,7 +29,7 @@ const LeaveManagementSchema = new mongoose.Schema(
 
         leaveType: {
           type: String,
-          enum: ["Casual", "Sick", "Paid"],
+          enum: ["Casual", "Sick", "Paid", "Unpaid"],
           required: true,
         },
 
@@ -75,15 +75,23 @@ const LeaveManagementSchema = new mongoose.Schema(
     ========================== */
 
     leaveBalance: {
-      totalLeaves: Number,
-      usedLeaves: Number,
-      remainingLeaves: Number,
+      totalLeaves: { type: Number, default: 0 },
+      usedLeaves: { type: Number, default: 0 },
+      remainingLeaves: { type: Number, default: 0 },
 
       leaveTypeWiseBalance: {
-        Casual: Number,
-        Sick: Number,
-        Paid: Number,
+        Casual: { type: Number, default: 0 },
+        Sick: { type: Number, default: 0 },
+        Paid: { type: Number, default: 0 },
+        Unpaid: { type: Number, default: 0 },
       },
+      // Detailed balance tracking
+      detailedBalance: {
+        Casual: { total: Number, used: Number },
+        Sick: { total: Number, used: Number },
+        Paid: { total: Number, used: Number },
+        Unpaid: { total: Number, used: Number },
+      }
     },
 
     /* =========================
@@ -119,4 +127,9 @@ const LeaveManagementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("LeaveManagement", LeaveManagementSchema);
+const LeaveManagement =
+  mongoose.models.LeaveManagement ||
+  mongoose.model("LeaveManagement", LeaveManagementSchema);
+
+export default LeaveManagement;
+
