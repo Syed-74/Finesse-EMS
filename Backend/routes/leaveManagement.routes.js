@@ -12,24 +12,24 @@ import {
   getLeaveStats
 } from "../controllers/leaveManagement.controllers.js";
 
-import authMiddleware from "../middleware/auth.middleware.js"; 
+import { protectAll } from "../middleware/auth.middleware.js"; 
 
 const router = express.Router();
 
 // Initialize profile (Admin)
-router.post("/profile", authMiddleware, createLeaveProfile);
+router.post("/profile", protectAll, createLeaveProfile);
 
 // Employee
-router.post("/apply/:employeeId", authMiddleware, applyLeave);
-router.get("/employee/:employeeId", authMiddleware, getEmployeeLeaves);
+router.post("/apply/:employeeId", protectAll, applyLeave);
+router.get("/employee/:employeeId", protectAll, getEmployeeLeaves);
 router.get("/calendar", getCalendarView);
 
 // Admin
-router.get("/stats", authMiddleware, getLeaveStats);
-router.get("/settings", authMiddleware, getLeaveSettings);
-router.get("/all-requests", authMiddleware, getAllLeaveRequests);
-router.put("/status/:employeeId/:leaveId", authMiddleware, updateLeaveStatus);
-router.post("/holiday", authMiddleware, addHoliday);
-router.put("/policy", authMiddleware, updateLeavePolicy);
+router.get("/stats", protectAll, getLeaveStats);
+router.get("/settings", protectAll, getLeaveSettings);
+router.get("/all-requests", protectAll, getAllLeaveRequests);
+router.put("/status/:employeeId/:leaveId", protectAll, updateLeaveStatus);
+router.post("/holiday", protectAll, addHoliday);
+router.put("/policy", protectAll, updateLeavePolicy);
 
 export default router;

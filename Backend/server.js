@@ -8,7 +8,7 @@ import authRoutes from "./routes/admin.routes.js";
 import employeeRoutes from "./routes/employee.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
 import leaveManagementModel from "./routes/leaveManagement.routes.js";
-
+import payrollRoutes from "./routes/payrollRoutes.js";
 dotenv.config();
 connectDB();
 
@@ -28,7 +28,8 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
-app.use("/api/leavemanagement",leaveManagementModel)
+app.use("/api/leavemanagement",leaveManagementModel);
+app.use("/api/payroll", payrollRoutes);
 
 // Static uploads
 app.use("/uploads", express.static("uploads"));

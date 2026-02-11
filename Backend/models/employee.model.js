@@ -37,6 +37,12 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
     },
 
+    employeeCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
     profileImage: {
       type: String, // image URL or path
     },
@@ -138,6 +144,16 @@ const employeeSchema = new mongoose.Schema(
 
     holidayCalendar: {
       type: String, // optional calendar name or ID
+    },
+
+    /* =========================
+       💰 SALARY STRUCTURE
+    ========================= */
+    salaryStructure: {
+      basicSalary: { type: Number, default: 0 },
+      hra: { type: Number, default: 0 },
+      allowance: { type: Number, default: 0 },
+      specialAllowance: { type: Number, default: 0 },
     },
 
     /* =========================
