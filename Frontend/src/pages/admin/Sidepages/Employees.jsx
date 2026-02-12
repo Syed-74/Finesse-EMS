@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import {
   Search,
   Filter,
@@ -600,9 +601,7 @@ export default function Employees() {
                   <tr key={emp._id || emp.employeeId} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">
-                          {emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}
-                        </div>
+                        <ProfileAvatar user={emp} className="w-10 h-10 shrink-0" />
                         <div>
                           <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
                           <div className="text-xs text-gray-500 lg:hidden">{emp.email}</div>
@@ -639,7 +638,7 @@ export default function Employees() {
           <div key={emp._id || emp.employeeId} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">{emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}</div>
+                <ProfileAvatar user={emp} className="w-10 h-10 shrink-0" />
                 <div>
                   <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
                   <div className="text-xs text-gray-500">{emp.email}</div>
