@@ -28,7 +28,9 @@ import {
   Users,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Save,
+  Briefcase
 } from "lucide-react";
 
 /* =========================================
@@ -113,9 +115,22 @@ const Leaves = () => {
   const [requests, setRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [stats, setStats] = useState(null);
-  const [settings, setSettings] = useState({ leavePolicy: [], holidays: [] });
+  const [settings, setSettings] = useState({
+    leavePolicy: {
+      Casual: { totalPerYear: 12, accrualType: "YEARLY", monthlyAccrual: 1, carryForward: false, maxCarryForward: 0 },
+      Sick: { totalPerYear: 10, accrualType: "YEARLY", monthlyAccrual: 0.8, carryForward: false, maxCarryForward: 0 },
+      Paid: { totalPerYear: 15, accrualType: "YEARLY", monthlyAccrual: 1.25, carryForward: true, maxCarryForward: 5 },
+      Unpaid: { totalPerYear: 0, accrualType: "YEARLY", monthlyAccrual: 0, carryForward: false, maxCarryForward: 0 },
+    },
+    leaveCycle: { cycleType: "YEARLY", cycleStartMonth: 0 },
+    holidays: []
+  });
+
+  // Need a separate state for editing policy to support inputs
+  const [policyForm, setPolicyForm] = useState(null);
+
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("dashboard"); // 'dashboard', 'requests', 'calendar', 'settings'
+  const [view, setView] = useState("dashboard"); // 'dashboard', 'requests', 'calendar', 'settings', 'allocation'
 
   // Modal & Actions
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -136,7 +151,24 @@ const Leaves = () => {
       setRequests(reqRes.data);
       setFilteredRequests(reqRes.data);
       setStats(statRes.data);
-      setSettings(setRes.data);
+
+      const loadedSettings = setRes.data;
+      // Ensure structure exists
+      if (!loadedSettings.leavePolicy || Array.isArray(loadedSettings.leavePolicy)) {
+        // Fallback if DB returns array or empty (older schema)
+        loadedSettings.leavePolicy = {
+          Casual: { totalPerYear: 12, accrualType: "YEARLY", monthlyAccrual: 1, carryForward: false, maxCarryForward: 0 },
+          Sick: { totalPerYear: 10, accrualType: "YEARLY", monthlyAccrual: 0.8, carryForward: false, maxCarryForward: 0 },
+          Paid: { totalPerYear: 15, accrualType: "YEARLY", monthlyAccrual: 1.25, carryForward: true, maxCarryForward: 5 },
+          Unpaid: { totalPerYear: 0, accrualType: "YEARLY", monthlyAccrual: 0, carryForward: false, maxCarryForward: 0 },
+        }
+      }
+      if (!loadedSettings.leaveCycle) {
+        loadedSettings.leaveCycle = { cycleType: "YEARLY", cycleStartMonth: 0 };
+      }
+
+      setSettings(loadedSettings);
+      setPolicyForm(JSON.parse(JSON.stringify(loadedSettings))); // Deep copy for form
     } catch (error) {
       console.error("Error fetching data", error);
     } finally {
@@ -195,6 +227,45 @@ const Leaves = () => {
     } catch (error) { alert("Error adding holiday"); }
   };
 
+  const savePolicy = async () => {
+    if (!window.confirm("Are you sure you want to update the Global Leave Policy? This will recalculate leave balances for all employees.")) return;
+
+    try {
+      await axios.put("http://localhost:5000/api/leavemanagement/policy", {
+        leavePolicy: policyForm.leavePolicy,
+        leaveCycle: policyForm.leaveCycle
+      });
+      alert("Policy updated successfully!");
+      fetchData();
+    } catch (error) {
+      alert("Failed to update policy: " + error.message);
+    }
+  }
+
+  // Helper to update nested policy state
+  const updatePolicyField = (type, field, value) => {
+    setPolicyForm(prev => ({
+      ...prev,
+      leavePolicy: {
+        ...prev.leavePolicy,
+        [type]: {
+          ...prev.leavePolicy[type],
+          [field]: value
+        }
+      }
+    }));
+  }
+
+  const updateCycleField = (field, value) => {
+    setPolicyForm(prev => ({
+      ...prev,
+      leaveCycle: {
+        ...prev.leaveCycle,
+        [field]: value
+      }
+    }));
+  }
+
   if (loading) return <div className="p-10 text-center text-gray-500">Loading Admin Dashboard...</div>;
 
   return (
@@ -211,6 +282,7 @@ const Leaves = () => {
             { id: 'dashboard', label: 'Overview', icon: BarChart2 },
             { id: 'requests', label: 'Inbox', icon: FileText },
             { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
+            { id: 'allocation', label: 'Allocation', icon: Briefcase },
             { id: 'settings', label: 'Settings', icon: LucideSettings },
           ].map(tab => (
             <button
@@ -358,6 +430,130 @@ const Leaves = () => {
         <AdminCalendar holidays={settings.holidays} leaves={requests} />
       )}
 
+      {/* ALLOCATION VIEW */}
+      {view === 'allocation' && policyForm && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Global Leave Policy</h2>
+              <p className="text-xs text-gray-500">Configure how leaves are accrued and allocated for all employees.</p>
+            </div>
+            <button onClick={savePolicy} className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition">
+              <Save size={18} /> Save Policy
+            </button>
+          </div>
+
+          {/* Cycle Settings */}
+          <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Leave Cycle Configuration</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cycle Type</label>
+                <select
+                  value={policyForm.leaveCycle.cycleType}
+                  onChange={(e) => updateCycleField('cycleType', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                >
+                  <option value="YEARLY">Yearly (Jan - Dec)</option>
+                  <option value="FINANCIAL_YEAR">Financial Year (Apr - Mar)</option>
+                  <option value="MONTHLY">Monthly Rolling</option>
+                </select>
+              </div>
+              {policyForm.leaveCycle.cycleType === 'FINANCIAL_YEAR' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cycle Start Month</label>
+                  <select
+                    value={policyForm.leaveCycle.cycleStartMonth}
+                    onChange={(e) => updateCycleField('cycleStartMonth', parseInt(e.target.value))}
+                    className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                  >
+                    <option value={0}>January</option>
+                    <option value={3}>April</option>
+                    <option value={6}>July</option>
+                    <option value={9}>October</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {["Casual", "Sick", "Paid", "Unpaid"].map(type => {
+              const p = policyForm.leavePolicy[type] || {};
+              return (
+                <div key={type} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition">
+                  <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-3">
+                    <h3 className="font-bold text-gray-800">{type} Leave</h3>
+                    <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">{p.accrualType}</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total / Year</label>
+                        <input
+                          type="number"
+                          value={p.totalPerYear}
+                          onChange={(e) => updatePolicyField(type, 'totalPerYear', parseFloat(e.target.value))}
+                          className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Accrual Type</label>
+                        <select
+                          value={p.accrualType}
+                          onChange={(e) => updatePolicyField(type, 'accrualType', e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg p-2 text-sm bg-white"
+                        >
+                          <option value="YEARLY">Yearly Flat</option>
+                          <option value="MONTHLY">Monthly Accrual</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {p.accrualType === 'MONTHLY' && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Monthly Credit</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={p.monthlyAccrual}
+                          onChange={(e) => updatePolicyField(type, 'monthlyAccrual', parseFloat(e.target.value))}
+                          className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                        />
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-gray-50 mt-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm text-gray-700 font-medium">Carry Forward</label>
+                        <input
+                          type="checkbox"
+                          checked={p.carryForward}
+                          onChange={(e) => updatePolicyField(type, 'carryForward', e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                      </div>
+                      {p.carryForward && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Max Carry Forward</label>
+                          <input
+                            type="number"
+                            value={p.maxCarryForward}
+                            onChange={(e) => updatePolicyField(type, 'maxCarryForward', parseFloat(e.target.value))}
+                            className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* SETTINGS VIEW */}
       {view === 'settings' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -389,25 +585,6 @@ const Leaves = () => {
                   </div>
                   <div className="text-xs bg-white px-2 py-1 rounded border border-gray-200 h-fit">
                     {h.holidayType}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <LucideSettings className="text-gray-600" /> System Policies
-            </h3>
-            <div className="space-y-4">
-              {["Casual", "Sick", "Paid"].map(t => (
-                <div key={t} className="flex justify-between items-center p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">{t} Leave</p>
-                    <p className="text-xs text-gray-500">Auto-accrual enabled</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Active</span>
                   </div>
                 </div>
               ))}

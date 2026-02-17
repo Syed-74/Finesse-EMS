@@ -133,7 +133,7 @@ const EmployeeLeaves = () => {
   const fetchData = async () => {
     const userId = admin?._id || admin?.id;
     if (!userId) return;
-    
+
     try {
       setLoading(true);
       const [userRes, calendarRes] = await Promise.all([
@@ -149,11 +149,12 @@ const EmployeeLeaves = () => {
       categories.forEach(type => {
         const detail = rawBalance.detailedBalance?.[type];
         const legacy = rawBalance.leaveTypeWiseBalance?.[type];
-        
+
         normalized[type] = {
           total: detail?.total ?? (legacy || 0),
           used: detail?.used ?? 0,
-          remaining: detail ? (detail.total - detail.used) : (legacy || 0)
+          remaining: detail?.remaining ?? (detail ? (detail.total - detail.used) : (legacy || 0)),
+          max: detail?.maxLeaves || (detail?.total || legacy || 0)
         };
       });
 
@@ -162,7 +163,7 @@ const EmployeeLeaves = () => {
       setHolidays(userRes.data.holidays);
       setTeamLeaves(calendarRes.data.filter(e => e.employeeId !== userId)); // Remove self
     } catch (error) {
-       console.error("Fetch error", error);
+      console.error("Fetch error", error);
     } finally {
       setLoading(false);
     }
@@ -265,16 +266,14 @@ const EmployeeLeaves = () => {
           {Object.entries(balance).map(([key, data]) => (
             <div key={key} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all duration-300">
               {/* Decorative BG */}
-              <div className={`absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8 rounded-full opacity-10 transition group-hover:scale-110 ${
-                key === 'Casual' ? 'bg-blue-500' : key === 'Sick' ? 'bg-red-500' : key === 'Paid' ? 'bg-green-500' : 'bg-amber-500'
-              }`} />
-              
+              <div className={`absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8 rounded-full opacity-10 transition group-hover:scale-110 ${key === 'Casual' ? 'bg-blue-500' : key === 'Sick' ? 'bg-red-500' : key === 'Paid' ? 'bg-green-500' : 'bg-amber-500'
+                }`} />
+
               <div className="flex justify-between items-start mb-4">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                  key === 'Casual' ? 'bg-blue-50 text-blue-600' : 
-                  key === 'Sick' ? 'bg-red-50 text-red-600' : 
-                  key === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                }`}>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${key === 'Casual' ? 'bg-blue-50 text-blue-600' :
+                  key === 'Sick' ? 'bg-red-50 text-red-600' :
+                    key === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                  }`}>
                   {key}
                 </span>
                 <Briefcase size={14} className="text-gray-300" />
@@ -289,8 +288,13 @@ const EmployeeLeaves = () => {
 
               <div className="grid grid-cols-2 gap-2 border-t border-gray-50 pt-3 mt-auto">
                 <div>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Total</p>
-                  <p className="text-sm font-bold text-gray-700">{data.total}</p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Accrued / Year</p>
+                  <p className="text-sm font-bold text-gray-700">{data.total} <span className="text-gray-400 text-xs">/ {data.max}</span></p>
+                  {data.total !== data.max && (
+                    <div className="mt-1 h-1 bg-gray-100 rounded-full overflow-hidden w-full">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(data.total / (data.max || 1)) * 100}%` }} />
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Used</p>
@@ -318,11 +322,10 @@ const EmployeeLeaves = () => {
                         type="button"
                         disabled={data.remaining <= 0}
                         onClick={() => setFormData({ ...formData, leaveType: type })}
-                        className={`py-3 rounded-xl border text-sm font-bold transition flex flex-col items-center gap-1 ${
-                          formData.leaveType === type
+                        className={`py-3 rounded-xl border text-sm font-bold transition flex flex-col items-center gap-1 ${formData.leaveType === type
                           ? "border-blue-500 bg-blue-50 text-blue-700"
                           : "border-gray-100 hover:bg-gray-50 text-gray-500"
-                        } ${data.remaining <= 0 ? "opacity-50 cursor-not-allowed bg-gray-50" : ""}`}
+                          } ${data.remaining <= 0 ? "opacity-50 cursor-not-allowed bg-gray-50" : ""}`}
                       >
                         {type}
                         <span className={`text-[9px] ${data.remaining <= 0 ? 'text-red-400' : 'text-gray-400'}`}>
@@ -357,11 +360,10 @@ const EmployeeLeaves = () => {
                 </div>
 
                 {/* Smart Duration Display */}
-                <div className={`p-4 rounded-xl flex items-center justify-between transition-all duration-300 ${
-                  calculatedDays > 0 
+                <div className={`p-4 rounded-xl flex items-center justify-between transition-all duration-300 ${calculatedDays > 0
                   ? (calculatedDays > (balance[formData.leaveType]?.remaining || 0) ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800")
                   : "bg-gray-50 text-gray-400"
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/50 rounded-lg"><Clock size={18} /></div>
                     <div>

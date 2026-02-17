@@ -87,10 +87,10 @@ const LeaveManagementSchema = new mongoose.Schema(
       },
       // Detailed balance tracking
       detailedBalance: {
-        Casual: { total: Number, used: Number },
-        Sick: { total: Number, used: Number },
-        Paid: { total: Number, used: Number },
-        Unpaid: { total: Number, used: Number },
+        Casual: { total: Number, used: Number, carriedForward: { type: Number, default: 0 } },
+        Sick: { total: Number, used: Number, carriedForward: { type: Number, default: 0 } },
+        Paid: { total: Number, used: Number, carriedForward: { type: Number, default: 0 } },
+        Unpaid: { total: Number, used: Number, carriedForward: { type: Number, default: 0 } },
       }
     },
 
