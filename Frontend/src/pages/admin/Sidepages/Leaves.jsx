@@ -34,9 +34,9 @@ import {
 } from "lucide-react";
 
 /* =========================================
-   COMPONENT: ADMIN CALENDAR VIEW
+   COMPONENT: ADVANCED ADMIN CALENDAR VIEW
 ========================================= */
-const AdminCalendar = ({ holidays, leaves }) => {
+const AdvancedAdminCalendar = ({ holidays, leaves, onDateClick, refreshData }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthStart = startOfMonth(currentDate);
@@ -47,7 +47,6 @@ const AdminCalendar = ({ holidays, leaves }) => {
 
   const getDayEvents = (date) => {
     const dayHolidays = holidays.filter(h => isSameDay(new Date(h.holidayDate), date));
-    // Filter only approved leaves for calendar
     const dayLeaves = leaves.filter(l =>
       l.status === 'Approved' &&
       isWithinInterval(date, { start: parseISO(l.startDate), end: parseISO(l.endDate) })
@@ -55,53 +54,161 @@ const AdminCalendar = ({ holidays, leaves }) => {
     return { dayHolidays, dayLeaves };
   };
 
+  const getDensityClass = (count) => {
+    if (count === 0) return "bg-white";
+    if (count <= 2) return "bg-blue-50/50";
+    if (count <= 4) return "bg-blue-100/60";
+    return "bg-red-50/80 border-red-100";
+  };
+
+  const getDensityDot = (count) => {
+    if (count === 0) return null;
+    if (count <= 2) return <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />;
+    if (count <= 4) return <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />;
+    return <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />;
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-          <CalendarIcon className="text-blue-600" /> {format(currentDate, "MMMM yyyy")}
-        </h3>
-        <div className="flex gap-2">
-          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
-          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
+    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      {/* Calendar Header */}
+      <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-r from-gray-50 to-white">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200">
+            <CalendarIcon size={24} />
+          </div>
+          <div>
+            <h3 className="font-black text-2xl text-gray-900 tracking-tight">
+              {format(currentDate, "MMMM yyyy")}
+            </h3>
+            <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">{leaves.filter(l => l.status === 'Approved').length} Approved Leaves for Current Cycle</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm">
+          <button
+            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+            className="p-2.5 hover:bg-gray-100 rounded-xl transition-all active:scale-95 text-gray-600"
+          >
+            <ChevronLeft size={20} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="px-4 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+            className="p-2.5 hover:bg-gray-100 rounded-xl transition-all active:scale-95 text-gray-600"
+          >
+            <ChevronRight size={20} strokeWidth={2.5} />
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-          <div key={d} className="bg-gray-50 p-2 text-center text-xs font-semibold text-gray-500 uppercase">
-            {d}
-          </div>
-        ))}
-        {empties.map((_, i) => <div key={`empty-${i}`} className="bg-white h-32" />)}
-
-        {daysInMonth.map(day => {
-          const { dayHolidays, dayLeaves } = getDayEvents(day);
-          const isToday = isSameDay(day, new Date());
-          const weekend = isWeekend(day);
-
-          return (
-            <div key={day.toString()} className={`bg-white h-32 p-2 hover:bg-gray-50 transition relative group ${weekend ? "bg-gray-50/50" : ""
-              }`}>
-              <span className={`text-sm font-medium ${isToday ? "bg-blue-600 text-white w-6 h-6 flex items-center justify-center rounded-full" : "text-gray-700"}`}>
-                {format(day, "d")}
-              </span>
-
-              <div className="mt-1 space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
-                {dayHolidays.map(h => (
-                  <div key={h._id || h.holidayId} className="text-[10px] font-medium text-red-600 bg-red-50 px-1 py-0.5 rounded truncate border border-red-100">
-                    {h.holidayName}
-                  </div>
-                ))}
-                {dayLeaves.map(l => (
-                  <div key={l._id || l.leaveId} className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1 py-0.5 rounded truncate border border-blue-100" title={`${l.employeeName} (${l.leaveType})`}>
-                    {l.employeeName}
-                  </div>
-                ))}
-              </div>
+      <div className="p-6">
+        <div className="grid grid-cols-7 gap-px rounded-3xl overflow-hidden border border-gray-100 shadow-inner bg-gray-100">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+            <div key={d} className="bg-gray-50/80 backdrop-blur-sm p-4 text-center text-xs font-black text-gray-400 uppercase tracking-widest">
+              {d}
             </div>
-          )
-        })}
+          ))}
+
+          {empties.map((_, i) => (
+            <div key={`empty-${i}`} className="bg-gray-50/30 h-32 md:h-40" />
+          ))}
+
+          {daysInMonth.map(day => {
+            const { dayHolidays, dayLeaves } = getDayEvents(day);
+            const isToday = isSameDay(day, new Date());
+            const weekend = isWeekend(day);
+            const densityClass = getDensityClass(dayLeaves.length);
+
+            return (
+              <div
+                key={day.toString()}
+                onClick={() => onDateClick(day, dayHolidays, dayLeaves)}
+                className={`h-32 md:h-40 p-3 transition-all cursor-pointer relative group border-b border-r border-gray-100 last:border-r-0 ${densityClass} hover:bg-blue-50/30`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className={`text-sm font-black transition-all ${isToday
+                    ? "bg-blue-600 text-white w-8 h-8 flex items-center justify-center rounded-xl shadow-lg shadow-blue-200 scale-110"
+                    : weekend ? "text-gray-300" : "text-gray-900"
+                    }`}>
+                    {format(day, "d")}
+                  </span>
+                  {dayLeaves.length > 0 && (
+                    <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-lg border border-gray-100 shadow-sm">
+                      {getDensityDot(dayLeaves.length)}
+                      <span className="text-[10px] font-black text-gray-600">{dayLeaves.length}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1 overflow-y-auto max-h-[70%] custom-scrollbar pr-1">
+                  {dayHolidays.map(h => (
+                    <div
+                      key={h._id || h.holidayId}
+                      className="group/holiday relative text-[9px] font-black uppercase tracking-tight text-red-600 bg-red-50/50 px-2 py-1 rounded-lg border border-red-100 truncate flex items-center gap-1"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {h.holidayName}
+                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover/holiday:block z-20 bg-gray-900 text-white text-[10px] p-2 rounded-xl shadow-xl whitespace-nowrap">
+                        {h.holidayName} ({h.holidayType})
+                      </div>
+                    </div>
+                  ))}
+                  {dayLeaves.map(l => (
+                    <div
+                      key={l._id || l.leaveId}
+                      className="group/leave relative text-[9px] font-bold text-blue-700 bg-white px-2 py-1 rounded-lg shadow-sm border border-blue-50 truncate flex items-center gap-1 hover:border-blue-200 transition-colors"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      {l.employeeName}
+                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover/leave:block z-20 bg-gray-900 text-white text-[10px] p-2 rounded-xl shadow-xl whitespace-nowrap border border-gray-800">
+                        {l.employeeName} - {l.leaveType} Leave
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="p-1.5 bg-gray-900 text-white rounded-lg shadow-lg">
+                    <PlusCircle size={12} />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="mt-8 flex flex-wrap gap-6 text-xs font-bold text-gray-500 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-white border border-gray-200 rounded-lg"></div>
+            <span>No Leaves</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-blue-50 border border-blue-100 rounded-lg"></div>
+            <span>1-2 Employees (Low)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-blue-100 border border-blue-200 rounded-lg"></div>
+            <span>3-4 Employees (Medium)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-red-50 border border-red-200 rounded-lg"></div>
+            <span>5+ Employees (High Density)</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+            <span>Holiday</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+            <span>Approved Leave</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -138,8 +245,9 @@ const Leaves = () => {
   const [adminComment, setAdminComment] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  // Settings Form
-  const [newHoliday, setNewHoliday] = useState({ name: "", date: "", type: "National" });
+  // Advanced Calendar States
+  const [dateModal, setDateModal] = useState({ show: false, date: null, holidays: [], leaves: [] });
+  const [holidayForm, setHolidayForm] = useState({ show: false, holiday: null, date: "" });
 
   const fetchData = async () => {
     try {
@@ -153,9 +261,7 @@ const Leaves = () => {
       setStats(statRes.data);
 
       const loadedSettings = setRes.data;
-      // Ensure structure exists
       if (!loadedSettings.leavePolicy || Array.isArray(loadedSettings.leavePolicy)) {
-        // Fallback if DB returns array or empty (older schema)
         loadedSettings.leavePolicy = {
           Casual: { totalPerYear: 12, accrualType: "YEARLY", monthlyAccrual: 1, carryForward: false, maxCarryForward: 0 },
           Sick: { totalPerYear: 10, accrualType: "YEARLY", monthlyAccrual: 0.8, carryForward: false, maxCarryForward: 0 },
@@ -168,7 +274,7 @@ const Leaves = () => {
       }
 
       setSettings(loadedSettings);
-      setPolicyForm(JSON.parse(JSON.stringify(loadedSettings))); // Deep copy for form
+      setPolicyForm(JSON.parse(JSON.stringify(loadedSettings)));
     } catch (error) {
       console.error("Error fetching data", error);
     } finally {
@@ -182,14 +288,44 @@ const Leaves = () => {
 
   // Filter Logic
   const [filterStatus, setFilterStatus] = useState("All");
+  const [filterType, setFilterType] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let filtered = requests;
     if (filterStatus !== "All") filtered = filtered.filter(r => r.status === filterStatus);
+    if (filterType !== "All") filtered = filtered.filter(r => r.leaveType === filterType);
     if (searchQuery) filtered = filtered.filter(r => r.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()));
     setFilteredRequests(filtered);
-  }, [filterStatus, searchQuery, requests]);
+  }, [filterStatus, filterType, searchQuery, requests]);
+
+  // Holiday CRUD
+  const handleHolidaySubmit = async (values) => {
+    try {
+      setProcessing(true);
+      if (holidayForm.holiday) {
+        await axios.put(`http://localhost:5000/api/leavemanagement/holiday/${holidayForm.holiday.holidayId}`, values);
+      } else {
+        await axios.post("http://localhost:5000/api/leavemanagement/holiday", values);
+      }
+      fetchData();
+      setHolidayForm({ show: false, holiday: null, date: "" });
+      setDateModal({ ...dateModal, show: false });
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to save holiday");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const deleteHoliday = async (id) => {
+    if (!window.confirm("Delete this holiday?")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/leavemanagement/holiday/${id}`);
+      fetchData();
+      setDateModal({ ...dateModal, show: false });
+    } catch (error) { alert("Delete failed"); }
+  };
 
   // Action Handler
   const handleAction = async () => {
@@ -356,12 +492,20 @@ const Leaves = () => {
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={filterType}
+                onChange={e => setFilterType(e.target.value)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border bg-white border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-100"
+              >
+                <option value="All">All Types</option>
+                {["Casual", "Sick", "Paid", "Unpaid"].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
               {["All", "Pending", "Approved", "Rejected"].map(s => (
                 <button
                   key={s}
                   onClick={() => setFilterStatus(s)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${filterStatus === s ? "bg-gray-100 border-gray-300 text-gray-900" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${filterStatus === s ? "bg-gray-900 border-gray-900 text-white shadow-lg shadow-gray-200" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
                     }`}
                 >
                   {s}
@@ -427,7 +571,12 @@ const Leaves = () => {
 
       {/* CALENDAR VIEW */}
       {view === 'calendar' && (
-        <AdminCalendar holidays={settings.holidays} leaves={requests} />
+        <AdvancedAdminCalendar
+          holidays={settings.holidays}
+          leaves={requests}
+          onDateClick={(date, dayHolidays, dayLeaves) => setDateModal({ show: true, date, holidays: dayHolidays, leaves: dayLeaves })}
+          refreshData={fetchData}
+        />
       )}
 
       {/* ALLOCATION VIEW */}
@@ -593,32 +742,192 @@ const Leaves = () => {
         </div>
       )}
 
+      {/* DATE DETAILS MODAL */}
+      {dateModal.show && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-gray-50 flex justify-between items-start bg-gradient-to-br from-gray-50 to-white">
+              <div>
+                <span className="text-blue-600 font-black uppercase text-[10px] tracking-widest mb-1 block">Date Details</span>
+                <h3 className="text-2xl font-black text-gray-900">{format(dateModal.date, "EEEE, MMMM do")}</h3>
+              </div>
+              <button
+                onClick={() => setDateModal({ ...dateModal, show: false })}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-all"
+              ><XCircle size={24} className="text-gray-400" /></button>
+            </div>
+
+            <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              {/* Holiday Section */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" /> Holiday
+                  </h4>
+                  {!dateModal.holidays.length && (
+                    <button
+                      onClick={() => setHolidayForm({ show: true, holiday: null, date: format(dateModal.date, "yyyy-MM-dd") })}
+                      className="text-[10px] font-black text-blue-600 uppercase hover:underline"
+                    >+ Add Holiday</button>
+                  )}
+                </div>
+                {dateModal.holidays.length > 0 ? (
+                  dateModal.holidays.map(h => (
+                    <div key={h.holidayId} className="bg-red-50/50 border border-red-100 p-4 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-gray-900">{h.holidayName}</p>
+                        <p className="text-[10px] font-bold text-red-600 uppercase mt-0.5">{h.holidayType} {h.isOptional ? ' (Optional)' : ''}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setHolidayForm({ show: true, holiday: h, date: format(dateModal.date, "yyyy-MM-dd") })}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        ><LucideSettings size={18} /></button>
+                        <button
+                          onClick={() => deleteHoliday(h.holidayId)}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                        ><Trash2 size={18} /></button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No holiday on this date.</p>
+                )}
+              </div>
+
+              {/* Employees on Leave */}
+              <div>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Employees on Leave ({dateModal.leaves.length})
+                </h4>
+                {dateModal.leaves.length > 0 ? (
+                  <div className="space-y-3">
+                    {dateModal.leaves.map(l => (
+                      <div key={l.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-xs">
+                          {l.employeeName?.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{l.employeeName}</p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{l.leaveType} Leave</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No employees on leave today.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HOLIDAY FORM MODAL */}
+      {holidayForm.show && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden p-8 animate-in slide-in-from-bottom-8 duration-300">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-xl font-black text-gray-900">{holidayForm.holiday ? 'Edit' : 'Add'} Holiday</h3>
+                <p className="text-gray-500 text-xs font-bold uppercase mt-1">{format(parseISO(holidayForm.date), "MMMM do, yyyy")}</p>
+              </div>
+              <button onClick={() => setHolidayForm({ show: false, holiday: null, date: "" })}><XCircle className="text-gray-300" /></button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.target;
+              handleHolidaySubmit({
+                holidayName: form.name.value,
+                holidayDate: holidayForm.date,
+                holidayType: form.type.value,
+                isOptional: form.isOptional.checked
+              });
+            }} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Holiday Name</label>
+                <input
+                  name="name"
+                  defaultValue={holidayForm.holiday?.holidayName || ""}
+                  required
+                  placeholder="e.g. Independence Day"
+                  className="w-full px-5 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all outline-none font-bold text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Type</label>
+                <select
+                  name="type"
+                  defaultValue={holidayForm.holiday?.holidayType || "National"}
+                  className="w-full px-5 py-3 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all outline-none font-bold text-gray-900 appearance-none"
+                >
+                  <option value="National">National</option>
+                  <option value="Optional">Optional</option>
+                  <option value="Restricted">Restricted</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                <input
+                  type="checkbox"
+                  name="isOptional"
+                  defaultChecked={holidayForm.holiday?.isOptional || false}
+                  className="w-5 h-5 rounded-lg border-gray-200 text-blue-600 focus:ring-blue-200"
+                  id="isOptional"
+                />
+                <label htmlFor="isOptional" className="text-xs font-bold text-blue-900">Mark as Optional Holiday</label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setHolidayForm({ show: false, holiday: null, date: "" })}
+                  className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-all"
+                >Cancel</button>
+                <button
+                  type="submit"
+                  disabled={processing}
+                  className="flex-1 py-4 bg-gray-900 text-white rounded-2xl font-black shadow-xl shadow-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {processing ? "Saving..." : <><Save size={18} /> Save Holiday</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL */}
       {selectedLeave && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[80]">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 duration-300">
+            <h3 className="text-xl font-black text-gray-900 mb-2">
               {actionType} Request?
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Action for <span className="font-semibold text-gray-900">{selectedLeave.employeeName}</span>'s request.
+            <p className="text-sm text-gray-500 font-medium mb-6">
+              Reviewing application for <span className="text-blue-600 font-black">{selectedLeave.employeeName}</span>.
             </p>
             <textarea
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-gray-200 outline-none resize-none"
-              rows={3}
+              className="w-full border border-gray-100 bg-gray-50 rounded-2xl p-4 text-sm font-medium focus:ring-4 focus:ring-blue-50 focus:bg-white outline-none resize-none transition-all"
+              rows={4}
               placeholder="Add admin comment (Mandatory for rejection)..."
               value={adminComment}
               onChange={(e) => setAdminComment(e.target.value)}
             />
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setSelectedLeave(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
+            <div className="grid grid-cols-2 gap-4 mt-8">
+              <button
+                onClick={() => setSelectedLeave(null)}
+                className="py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-all"
+              >Cancel</button>
               <button
                 onClick={handleAction}
                 disabled={processing || (actionType === 'Reject' && !adminComment.trim())}
-                className={`px-6 py-2 rounded-lg text-white text-sm font-medium shadow-md transition ${actionType === 'Approve' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700 disabled:bg-red-400"
+                className={`py-4 rounded-2xl text-white font-black shadow-xl transition-all hover:-translate-y-1 active:scale-95 ${actionType === 'Approve'
+                  ? "bg-green-600 shadow-green-100 hover:bg-green-700"
+                  : "bg-red-600 shadow-red-100 hover:bg-red-700 disabled:opacity-50"
                   }`}
               >
-                {processing ? "Processing..." : `Confirm ${actionType}`}
+                {processing ? "Wait..." : `Confirm ${actionType}`}
               </button>
             </div>
           </div>

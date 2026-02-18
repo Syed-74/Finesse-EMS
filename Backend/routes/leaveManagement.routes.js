@@ -9,10 +9,12 @@ import {
   getLeaveSettings,
   getAllLeaveRequests,
   getCalendarView,
-  getLeaveStats
+  getLeaveStats,
+  updateHoliday,
+  deleteHoliday
 } from "../controllers/leaveManagement.controllers.js";
 
-import { protectAll } from "../middleware/auth.middleware.js"; 
+import { protectAll } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -30,6 +32,8 @@ router.get("/settings", protectAll, getLeaveSettings);
 router.get("/all-requests", protectAll, getAllLeaveRequests);
 router.put("/status/:employeeId/:leaveId", protectAll, updateLeaveStatus);
 router.post("/holiday", protectAll, addHoliday);
+router.put("/holiday/:holidayId", protectAll, updateHoliday);
+router.delete("/holiday/:holidayId", protectAll, deleteHoliday);
 router.put("/policy", protectAll, updateLeavePolicy);
 
 export default router;

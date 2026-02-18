@@ -1,7 +1,7 @@
 import LeaveManagement from "../models/LeaveManagement.model.js";
 import LeaveSettings from "../models/LeaveSettings.model.js";
 import mongoose from "mongoose";
-import { isWeekend, eachDayOfInterval, isSameDay, parseISO, differenceInMonths, startOfYear } from "date-fns";
+import { isWeekend, eachDayOfInterval, isSameDay, parseISO, differenceInMonths, startOfYear, isWithinInterval, format, isValid, isAfter } from "date-fns";
 
 /* ===========================
    HELPER: Get Settings
@@ -165,28 +165,66 @@ export const createLeaveProfile = async (req, res) => {
    APPLY LEAVE (EMPLOYEE)
 =========================== */
 export const applyLeave = async (req, res) => {
+  console.log("Apply Leave Request Received:", { params: req.params, body: req.body });
   try {
     const { employeeId } = req.params;
     const { leaveType, startDate, endDate, reason, attachment, halfDay } = req.body;
 
+    // 1. Validation Logic
+    if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(400).json({ message: "Invalid or missing Employee ID" });
+    }
+
+    if (!leaveType || !startDate || !endDate || !reason) {
+      return res.status(400).json({ message: "Missing required fields: leaveType, startDate, endDate, and reason are mandatory." });
+    }
+
+    const startObj = new Date(startDate);
+    const endObj = new Date(endDate);
+
+    if (!isValid(startObj) || !isValid(endObj)) {
+      return res.status(400).json({ message: "Invalid date format. Please use YYYY-MM-DD." });
+    }
+
+    if (isAfter(startObj, endObj)) {
+      return res.status(400).json({ message: "Start date cannot be after end date." });
+    }
+
     const profile = await LeaveManagement.findOne({ employeeId });
-    if (!profile) return res.status(404).json({ message: "Leave profile not found" });
+    if (!profile) {
+      console.error(`Leave profile not found for employeeId: ${employeeId}`);
+      return res.status(404).json({ message: "Leave profile not found. Please contact Admin to initialize your leave account." });
+    }
 
     const settings = await getSettings();
 
-    // 1. Calculate Days
+    // 2. Calculate Days
     let calculatedDays = 0;
-    if (halfDay) {
-      calculatedDays = 0.5;
-    } else {
-      calculatedDays = calculateLeaveDays(startDate, endDate, settings.holidays);
+    try {
+      if (halfDay) {
+        calculatedDays = 0.5;
+      } else {
+        calculatedDays = calculateLeaveDays(startDate, endDate, settings.holidays);
+      }
+    } catch (calcError) {
+      console.error("Calculation Error:", calcError);
+      return res.status(400).json({ message: "Error calculating leave days." });
     }
 
     if (calculatedDays === 0) {
-      return res.status(400).json({ message: "Selected dates are holidays or weekends." });
+      return res.status(400).json({ message: "Selected dates are holidays or weekends. No working days found." });
     }
 
-    // 2. Check Dynamic Balance
+    // 2.1 Check Fixed Holidays in range
+    const daysRequested = eachDayOfInterval({ start: startObj, end: endObj });
+    for (const day of daysRequested) {
+      const holiday = settings.holidays.find(h => isSameDay(new Date(h.holidayDate), day));
+      if (holiday && !holiday.isOptional) {
+        return res.status(400).json({ message: `Cannot apply leave on ${holiday.holidayName} (Fixed Holiday)` });
+      }
+    }
+
+    // 3. Check Dynamic Balance
     const dynamicBalance = calculateLeaveBalance(profile, settings);
     const typeBalance = dynamicBalance.detailedBalance[leaveType];
 
@@ -196,33 +234,56 @@ export const applyLeave = async (req, res) => {
 
     if (typeBalance.remaining < calculatedDays) {
       return res.status(400).json({
-        message: `Insufficient ${leaveType} leave balance. Available: ${typeBalance.remaining}, Requested: ${calculatedDays}`
+        message: `Insufficient ${leaveType} balance. Remaining: ${typeBalance.remaining}, Requested: ${calculatedDays}`
       });
     }
 
-    // 3. Check Overlap
+    // 4. Overlap Check
     const isOverlap = profile.leaveRequests.some(req => {
-      // Skip rejected/cancelled
       if (req.status === 'Rejected' || req.status === 'Cancelled') return false;
-
       const reqStart = new Date(req.startDate);
       const reqEnd = new Date(req.endDate);
-      const newStart = new Date(startDate);
-      const newEnd = new Date(endDate);
-      return (newStart <= reqEnd && newEnd >= reqStart);
+      return (startObj <= reqEnd && endObj >= reqStart);
     });
 
     if (isOverlap) {
       return res.status(400).json({ message: "You already have a leave request for this period." });
     }
 
-    // 4. Create Request
+    // 5. Team Conflict Rule (Max 3 in same department)
+    if (profile.departmentId) {
+      const profilesInDept = await LeaveManagement.find({
+        departmentId: profile.departmentId,
+        employeeId: { $ne: employeeId }
+      });
+      const maxPerDept = 3;
+
+      for (const day of daysRequested) {
+        if (isWeekend(day)) continue;
+        let count = 0;
+        profilesInDept.forEach(p => {
+          p.leaveRequests.forEach(l => {
+            if (l.status === 'Approved' && isWithinInterval(day, { start: new Date(l.startDate), end: new Date(l.endDate) })) {
+              count++;
+            }
+          });
+        });
+
+        if (count >= maxPerDept) {
+          return res.status(400).json({
+            message: `Department leave limit reached for ${format(day, 'MMM d')}. Max ${maxPerDept} employees allowed.`
+          });
+        }
+      }
+    }
+
+    // 6. Final Push
     const leaveId = new mongoose.Types.ObjectId().toString();
     profile.leaveRequests.push({
       leaveId,
       leaveType,
-      startDate,
-      endDate,
+      startDate: startObj,
+      endDate: endObj,
       totalDays: calculatedDays,
       reason,
       attachment,
@@ -230,12 +291,18 @@ export const applyLeave = async (req, res) => {
       status: "Pending"
     });
 
-    profile.auditLog.push({ action: "Leave Applied", performedBy: employeeId });
+    profile.auditLog.push({ action: "Leave Applied", performedBy: employeeId.toString() });
     await profile.save();
 
-    res.json({ message: "Leave applied successfully", leaveId, days: calculatedDays });
+    console.log(`Success: Leave applied for ${employeeId}, LeaveID: ${leaveId}`);
+    res.json({ message: "Leave applied successfully!", leaveId, days: calculatedDays });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("APPLY LEAVE CRASH:", error);
+    res.status(500).json({
+      message: "Internal Server Error during leave application.",
+      error: error.message
+    });
   }
 };
 
@@ -345,21 +412,41 @@ export const updateLeaveStatus = async (req, res) => {
 export const getCalendarView = async (req, res) => {
   try {
     const profiles = await LeaveManagement.find();
+    const settings = await getSettings();
     const events = [];
+
+    // Add Leaves
     profiles.forEach(p => {
       p.leaveRequests.forEach(l => {
-        if (l.status === 'Approved') {
-          events.push({
-            title: `${p.employeeName} (${l.leaveType})`,
-            start: l.startDate,
-            end: l.endDate,
-            allDay: true,
-            status: 'Approved',
-            employeeId: p.employeeId
-          });
-        }
+        // Multi-status for employee view
+        events.push({
+          id: l.leaveId,
+          title: `${p.employeeName} (${l.leaveType})`,
+          start: l.startDate,
+          end: l.endDate,
+          status: l.status,
+          employeeId: p.employeeId,
+          employeeName: p.employeeName,
+          type: 'leave',
+          leaveType: l.leaveType,
+          departmentId: p.departmentId
+        });
       });
     });
+
+    // Add Holidays
+    settings.holidays.forEach(h => {
+      events.push({
+        id: h.holidayId,
+        title: h.holidayName,
+        start: h.holidayDate,
+        end: h.holidayDate,
+        type: 'holiday',
+        holidayType: h.holidayType,
+        isOptional: h.isOptional
+      });
+    });
+
     res.json(events);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -405,19 +492,59 @@ export const getLeaveStats = async (req, res) => {
 /* ===========================
    Standard CRUD
 =========================== */
+/* ===========================
+   HOLIDAY CRUD
+=========================== */
 export const addHoliday = async (req, res) => {
   try {
     const { holidayName, holidayDate, holidayType, isOptional } = req.body;
     const settings = await getSettings();
+
+    // Prevent Duplicates
+    const exists = settings.holidays.some(h => isSameDay(new Date(h.holidayDate), new Date(holidayDate)));
+    if (exists) return res.status(400).json({ message: "A holiday already exists on this date." });
+
     settings.holidays.push({
       holidayId: new mongoose.Types.ObjectId().toString(),
       holidayName,
       holidayDate,
       holidayType,
-      isOptional,
+      isOptional: isOptional || false,
     });
     await settings.save();
-    res.json({ message: "Holiday added" });
+    res.json({ message: "Holiday added successfully" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+export const updateHoliday = async (req, res) => {
+  try {
+    const { holidayId } = req.params;
+    const { holidayName, holidayDate, holidayType, isOptional } = req.body;
+    const settings = await getSettings();
+
+    const hIndex = settings.holidays.findIndex(h => h.holidayId === holidayId);
+    if (hIndex === -1) return res.status(404).json({ message: "Holiday not found" });
+
+    settings.holidays[hIndex] = {
+      ...settings.holidays[hIndex].toObject(),
+      holidayName,
+      holidayDate,
+      holidayType,
+      isOptional
+    };
+
+    await settings.save();
+    res.json({ message: "Holiday updated successfully" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+export const deleteHoliday = async (req, res) => {
+  try {
+    const { holidayId } = req.params;
+    const settings = await getSettings();
+    settings.holidays = settings.holidays.filter(h => h.holidayId !== holidayId);
+    await settings.save();
+    res.json({ message: "Holiday deleted successfully" });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
