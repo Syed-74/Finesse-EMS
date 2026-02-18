@@ -587,3 +587,61 @@ export const getAllLeaveRequests = async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
+/* ===========================
+   PAYROLL HELPER: GET UNPAID LEAVE SUMMARY
+=========================== */
+export const getUnpaidLeaveSummary = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { month, year } = req.query;
+
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ message: "Missing required query parameters: month, year" });
+    }
+
+    const m = parseInt(month);
+    const y = parseInt(year);
+
+    const profile = await LeaveManagement.findOne({ employeeId });
+    if (!profile) return res.json({ unpaidLeaves: 0 });
+
+    const settings = await getSettings();
+    const targetMonthStart = new Date(y, m - 1, 1);
+    const targetMonthEnd = new Date(y, m, 0); // Last day of month
+
+    let totalUnpaidDays = 0;
+
+    profile.leaveRequests.forEach((leave) => {
+      if (leave.status === "Approved" && leave.leaveType === "Unpaid") {
+        const leaveStart = new Date(leave.startDate);
+        const leaveEnd = new Date(leave.endDate);
+
+        // Calculate overlap with target month
+        const overlapStart = leaveStart < targetMonthStart ? targetMonthStart : leaveStart;
+        const overlapEnd = leaveEnd > targetMonthEnd ? targetMonthEnd : leaveEnd;
+
+        if (overlapStart <= overlapEnd) {
+          if (leave.halfDay) {
+            // Half day leaves are usually single day, check if that day is in target month
+            if (leaveStart.getMonth() + 1 === m && leaveStart.getFullYear() === y) {
+              totalUnpaidDays += 0.5;
+            }
+          } else {
+            // Calculate working days in the overlap interval
+            const workingDays = calculateLeaveDays(overlapStart, overlapEnd, settings.holidays);
+            totalUnpaidDays += workingDays;
+          }
+        }
+      }
+    });
+
+    res.json({
+      unpaidLeaves: Math.max(0, totalUnpaidDays),
+      totalDays: Math.max(0, totalUnpaidDays)
+    });
+  } catch (error) {
+    console.error("GET UNPAID LEAVE SUMMARY ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+

@@ -18,7 +18,8 @@ import {
   Clock,
   ArrowRight,
   ArrowLeft,
-  Calendar
+  Calendar,
+  DollarSign
 } from "lucide-react";
 
 // Configure base API_URL
@@ -30,7 +31,7 @@ const STEPS = [
   { id: 2, title: "Professional", icon: Briefcase },
   { id: 3, title: "Work Config", icon: Clock },
   { id: 4, title: "Address", icon: MapPin },
-  { id: 5, title: "Leave Allocation", icon: Calendar },
+  { id: 5, title: "Salary Structure", icon: DollarSign },
 ];
 
 export default function Employees() {
@@ -105,15 +106,6 @@ export default function Employees() {
 
   // Validation
   const validateCurrentStep = () => {
-    if (currentStep === 5) {
-      const invalid = Object.values(currentEmployee.leaveAllocation).some(
-        data => data.total < data.used
-      );
-      if (invalid) {
-        alert("Total leaves cannot be less than used leaves.");
-        return false;
-      }
-    }
     return true;
   };
 
@@ -150,7 +142,7 @@ export default function Employees() {
         country: currentEmployee.country,
         emergencyContact: currentEmployee.emergencyContact,
         isActive: currentEmployee.isActive,
-        leaveAllocation: currentEmployee.leaveAllocation, // Added leave allocation
+        salaryStructure: currentEmployee.salaryStructure,
       };
 
       await axios.put(`${API_URL}/${id}`, payload);
@@ -203,11 +195,9 @@ export default function Employees() {
       country: emp.country || "",
       emergencyContact: emp.emergencyContact || "",
       dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : "",
-      leaveAllocation: emp.leaveAllocation || {
-        Casual: { total: 0, used: 0 },
-        Sick: { total: 0, used: 0 },
-        Paid: { total: 0, used: 0 },
-        Unpaid: { total: 0, used: 0 }
+      salaryStructure: emp.salaryStructure || {
+        basicSalary: 0,
+        annualSalary: 0
       },
     });
     setCurrentStep(1);
@@ -437,84 +427,104 @@ export default function Employees() {
 
           </div>
         );
-      case 5: // Leave Allocation
+      case 5: // Salary Structure
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(currentEmployee.leaveAllocation).map(([type, data]) => (
-                <div key={type} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-200 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-gray-800">{type} Leave</h4>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${type === 'Sick' ? 'bg-red-50 text-red-600' :
-                      type === 'Casual' ? 'bg-blue-50 text-blue-600' :
-                        type === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'
-                      }`}>
-                      Allocation
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Leaves</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={data.total}
-                        onChange={e => {
-                          const newVal = Math.max(0, parseInt(e.target.value) || 0);
-                          setCurrentEmployee({
-                            ...currentEmployee,
-                            leaveAllocation: {
-                              ...currentEmployee.leaveAllocation,
-                              [type]: { ...data, total: newVal }
-                            }
-                          });
-                        }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div className="bg-gray-50 p-2 rounded-lg">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Used</p>
-                        <p className="text-sm font-semibold text-gray-700">{data.used}</p>
-                      </div>
-                      <div className={`${data.total - data.used < 0 ? 'bg-red-50' : 'bg-blue-50'} p-2 rounded-lg`}>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Remaining</p>
-                        <p className={`text-sm font-semibold ${data.total - data.used < 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                          {data.total - data.used}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                <DollarSign size={20} />
+              </div>
+              <div>
+                <h4 className="font-bold text-indigo-900 text-sm">Employee Salary Configuration</h4>
+                <p className="text-xs text-indigo-600">Define the fixed base salary. Other components can be added during payroll generation.</p>
+              </div>
             </div>
 
-            {/* Summary Card */}
-            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider mb-1">Total Annual Allocation</p>
-                  <h3 className="text-3xl font-bold">
-                    {Object.values(currentEmployee.leaveAllocation).reduce((acc, curr) => acc + curr.total, 0)} Days
-                  </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Annual Package (LPA)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm shadow-sm font-medium"
+                    value={currentEmployee.salaryStructure.annualSalary || ""}
+                    onChange={(e) => {
+                      const lpa = parseFloat(e.target.value) || 0;
+                      const monthly = (lpa * 100000) / 12;
+                      setCurrentEmployee({
+                        ...currentEmployee,
+                        salaryStructure: {
+                          ...currentEmployee.salaryStructure,
+                          annualSalary: lpa,
+                          basicSalary: Math.round(monthly * 100) / 100
+                        }
+                      });
+                    }}
+                    placeholder="e.g. 6.5"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">LPA</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-blue-100 text-xs font-bold uppercase tracking-wider mb-1">Available to Employee</p>
-                  <p className="text-xl font-semibold">
-                    {Object.values(currentEmployee.leaveAllocation).reduce((acc, curr) => acc + (curr.total - curr.used), 0)} Available
+                <p className="text-[10px] text-gray-400 italic">Entering LPA will auto-calculate Monthly Basic</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Monthly Basic Salary
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                  <input
+                    type="number"
+                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all shadow-sm font-semibold"
+                    value={currentEmployee.salaryStructure.basicSalary || ""}
+                    onChange={(e) =>
+                      setCurrentEmployee({
+                        ...currentEmployee,
+                        salaryStructure: {
+                          ...currentEmployee.salaryStructure,
+                          basicSalary: Number(e.target.value) || 0,
+                          annualSalary: Math.round(((Number(e.target.value) * 12) / 100000) * 100) / 100
+                        },
+                      })
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 italic">Fixed monthly base salary</p>
+              </div>
+
+              <div className="space-y-1.5 hidden lg:block">
+                <div className="h-full flex items-center p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <p className="text-[10px] text-gray-500 text-center w-full leading-relaxed">
+                    Fixed base salary is used for <span className="text-red-500 font-bold">unpaid leave deductions</span> and statutory calculations in Payroll.
                   </p>
                 </div>
               </div>
             </div>
 
-            {!currentEmployee.isActive && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-700 text-sm">
-                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">⚠️</div>
-                <p>Employee is currently <strong>Inactive</strong>. Leave allocation will be saved but balances will only be accessible once reactivated.</p>
+            <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 shadow-xl overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <span className="text-gray-400 font-medium text-xs uppercase tracking-widest">Confirmed Base Payout</span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl font-black text-white">
+                      ₹{(Number(currentEmployee.salaryStructure.basicSalary) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-gray-400 text-sm font-medium">/ month</span>
+                  </div>
+                </div>
+                <div className="flex flex-col md:text-right border-t md:border-t-0 md:border-l border-gray-800 pt-4 md:pt-0 md:pl-6">
+                  <span className="text-gray-500 text-[10px] font-bold uppercase tracking-tight mb-1">Annual Take Home (Approx)</span>
+                  <span className="text-lg font-bold text-indigo-400">
+                    ₹{((Number(currentEmployee.salaryStructure.basicSalary) || 0) * 12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         );
       default: return null;

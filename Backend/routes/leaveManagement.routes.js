@@ -11,7 +11,8 @@ import {
   getCalendarView,
   getLeaveStats,
   updateHoliday,
-  deleteHoliday
+  deleteHoliday,
+  getUnpaidLeaveSummary
 } from "../controllers/leaveManagement.controllers.js";
 
 import { protectAll } from "../middleware/auth.middleware.js";
@@ -24,6 +25,7 @@ router.post("/profile", protectAll, createLeaveProfile);
 // Employee
 router.post("/apply/:employeeId", protectAll, applyLeave);
 router.get("/employee/:employeeId", protectAll, getEmployeeLeaves);
+router.get("/unpaid-summary/:employeeId", protectAll, getUnpaidLeaveSummary);
 router.get("/calendar", getCalendarView);
 
 // Admin

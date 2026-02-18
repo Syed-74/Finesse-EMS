@@ -35,9 +35,6 @@ const payrollSchema = new mongoose.Schema(
     // 🔹 Salary Structure (Fixed Components)
     salaryStructure: {
       basicSalary: { type: Number, required: true },
-      hra: { type: Number, default: 0 },
-      allowance: { type: Number, default: 0 },
-      specialAllowance: { type: Number, default: 0 },
     },
 
     // 🔹 Earnings (Dynamic)

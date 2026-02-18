@@ -357,9 +357,6 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
     year: data?.year || new Date().getFullYear(),
     salaryStructure: {
       basicSalary: data?.salaryStructure?.basicSalary || 0,
-      hra: data?.salaryStructure?.hra || 0,
-      allowance: data?.salaryStructure?.allowance || 0,
-      specialAllowance: data?.salaryStructure?.specialAllowance || 0,
     },
     earnings: data?.earnings || [],
     deductions: data?.deductions || [],
@@ -372,6 +369,32 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
   });
 
   const [preview, setPreview] = useState(null);
+  const [fetchingLeaves, setFetchingLeaves] = useState(false);
+
+  useEffect(() => {
+    const fetchUnpaidLeaves = async () => {
+      if (!formData.employeeId || !formData.month || !formData.year || isEdit) return;
+
+      setFetchingLeaves(true);
+      try {
+        const res = await axios.get(
+          `${API_BASE_URL}/leavemanagement/unpaid-summary/${formData.employeeId}?month=${formData.month}&year=${formData.year}`,
+          { withCredentials: true }
+        );
+        setFormData((prev) => ({
+          ...prev,
+          unpaidLeaves: res.data.unpaidLeaves || 0,
+        }));
+      } catch (error) {
+        console.error("Error fetching unpaid leaves:", error);
+        toast.error("Failed to fetch leave records");
+      } finally {
+        setFetchingLeaves(false);
+      }
+    };
+
+    fetchUnpaidLeaves();
+  }, [formData.employeeId, formData.month, formData.year]);
 
   useEffect(() => {
     if (formData.salaryStructure.basicSalary > 0) {
@@ -380,29 +403,35 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
   }, [formData]);
 
   const calculatePreview = () => {
-    const fixed =
-      parseFloat(formData.salaryStructure.basicSalary) +
-      parseFloat(formData.salaryStructure.hra || 0) +
-      parseFloat(formData.salaryStructure.allowance || 0) +
-      parseFloat(formData.salaryStructure.specialAllowance || 0);
+    // Basic values - ensure they are numbers
+    const basic = Number(formData.salaryStructure.basicSalary) || 0;
+    const workingDays = Number(formData.totalWorkingDays) || 30;
+    const unpaid = Number(formData.unpaidLeaves) || 0;
 
-    const extraEarnings = formData.earnings.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
-    const leaveDeduction = (fixed / formData.totalWorkingDays) * formData.unpaidLeaves;
+    // Correct per-day calculation (avoid 0 division)
+    const perDaySalary = workingDays > 0 ? basic / workingDays : 0;
+    const leaveDeduction = perDaySalary * unpaid;
 
-    const tax = (fixed * formData.taxPercentage) / 100;
-    const pf = (fixed * formData.pfPercentage) / 100;
-    const esi = (fixed * formData.esiPercentage) / 100;
+    // Extra components
+    const extraEarnings = formData.earnings.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+    const extraDeductions = formData.deductions.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
-    const extraDeductions = formData.deductions.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
+    // Statutory deductions based strictly on basic salary
+    const tax = (basic * (Number(formData.taxPercentage) || 0)) / 100;
+    const pf = (basic * (Number(formData.pfPercentage) || 0)) / 100;
+    const esi = (basic * (Number(formData.esiPercentage) || 0)) / 100;
+    const ptax = Number(formData.professionalTax) || 0;
 
-    const totalEarnings = fixed + extraEarnings;
-    const totalDeductions = tax + pf + esi + (parseFloat(formData.professionalTax) || 0) + leaveDeduction + extraDeductions;
-    const netSalary = totalEarnings - totalDeductions;
+    const grossSalary = basic + extraEarnings;
+    const totalDeductions = tax + pf + esi + ptax + leaveDeduction + extraDeductions;
+    const netSalary = grossSalary - totalDeductions;
 
     setPreview({
-      gross: totalEarnings,
+      gross: grossSalary,
       deductions: totalDeductions,
-      net: netSalary
+      net: Math.max(0, netSalary),
+      perDay: perDaySalary,
+      leaveDeduction: leaveDeduction
     });
   };
 
@@ -475,9 +504,6 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                         employeeId: e.target.value,
                         salaryStructure: {
                           basicSalary: emp.salaryStructure.basicSalary || 0,
-                          hra: emp.salaryStructure.hra || 0,
-                          allowance: emp.salaryStructure.allowance || 0,
-                          specialAllowance: emp.salaryStructure.specialAllowance || 0,
                         }
                       });
                     } else {
@@ -518,130 +544,200 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
             {/* Salary Structure */}
             <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
               <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                <FileText size={16} className="text-indigo-500" />
-                Salary Structure (Monthly)
+                <DollarSign size={16} className="text-indigo-500" />
+                Base Salary (Fixed)
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {Object.keys(formData.salaryStructure).map(key => (
-                  <div key={key} className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">{key.replace(/([A-Z])/g, ' $1')}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Monthly Basic Salary</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
                     <input
                       type="number"
-                      value={formData.salaryStructure[key]}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        salaryStructure: { ...formData.salaryStructure, [key]: e.target.value }
-                      })}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      readOnly
+                      value={formData.salaryStructure.basicSalary}
+                      className="w-full pl-7 pr-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed font-medium"
                     />
                   </div>
-                ))}
+                  <p className="text-[10px] text-gray-400 italic">Read-only from employee profile</p>
+                </div>
+                <div className="space-y-1.5 hidden sm:block">
+                  <div className="h-full flex items-center p-3 bg-white border border-dashed border-gray-200 rounded-lg">
+                    <p className="text-[10px] text-gray-400 leading-tight">This basic salary is used as the base for all statutory calculations and attendance-based deductions.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Attendance & Deductions Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between">
-                  <span>Earnings (Extra)</span>
-                  <button type="button" onClick={addEarning} className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Row</button>
-                </h3>
-                {formData.earnings.map((e, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      placeholder="Bonus/Incentive"
-                      value={e.componentName}
-                      onChange={(ev) => {
-                        const newEarnings = [...formData.earnings];
-                        newEarnings[i].componentName = ev.target.value;
-                        setFormData({ ...formData, earnings: newEarnings });
-                      }}
-                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Amount"
-                      value={e.amount}
-                      onChange={(ev) => {
-                        const newEarnings = [...formData.earnings];
-                        newEarnings[i].amount = ev.target.value;
-                        setFormData({ ...formData, earnings: newEarnings });
-                      }}
-                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
-                    />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between mb-4">
+                    <span>Earnings (Extra)</span>
+                    <button type="button" onClick={addEarning} className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Row</button>
+                  </h3>
+                  <div className="space-y-2">
+                    {formData.earnings.map((e, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          placeholder="Bonus/Incentive"
+                          value={e.componentName}
+                          onChange={(ev) => {
+                            const newEarnings = [...formData.earnings];
+                            newEarnings[i].componentName = ev.target.value;
+                            setFormData({ ...formData, earnings: newEarnings });
+                          }}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Amount"
+                          value={e.amount}
+                          onChange={(ev) => {
+                            const newEarnings = [...formData.earnings];
+                            newEarnings[i].amount = ev.target.value;
+                            setFormData({ ...formData, earnings: newEarnings });
+                          }}
+                          className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-gray-500 text-red-500">Unpaid Leaves</label>
-                    <input
-                      type="number"
-                      value={formData.unpaidLeaves}
-                      onChange={(e) => setFormData({ ...formData, unpaidLeaves: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm border-red-100"
-                    />
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between">
+                    <span>Attendance Config</span>
+                    {fetchingLeaves && <span className="flex items-center gap-1 text-[10px] text-indigo-500 font-bold animate-pulse"><Clock size={12} /> Syncing Leaves...</span>}
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-gray-500 text-red-500 flex items-center gap-1">
+                        Unpaid Leaves (Days)
+                      </label>
+                      <div className="relative group">
+                        <input
+                          type="number"
+                          readOnly
+                          disabled
+                          value={formData.unpaidLeaves}
+                          className="w-full px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm shadow-sm text-red-700 font-black cursor-not-allowed transition-all"
+                          placeholder={fetchingLeaves ? "Calculating..." : "0"}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {formData.unpaidLeaves > 0 ? (
+                            <CheckCircle size={16} className="text-red-400" />
+                          ) : !fetchingLeaves && (
+                            <FileText size={16} className="text-gray-300" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Detailed Breakdown */}
+                      <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-2 shadow-sm">
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-gray-400 font-medium uppercase tracking-wider">Total Unpaid Days</span>
+                          <span className="text-red-600 font-bold">{formData.unpaidLeaves} Days</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-gray-400 font-medium uppercase tracking-wider">Per Day Salary</span>
+                          <span className="text-gray-700 font-bold">₹{preview?.perDay ? preview.perDay.toFixed(2) : '0.00'}</span>
+                        </div>
+                        <div className="pt-2 border-t border-gray-50 flex justify-between items-center text-[10px]">
+                          <span className="text-gray-500 font-bold uppercase tracking-wider">Total Deduction</span>
+                          <span className="text-red-600 font-black text-xs">₹{preview?.leaveDeduction ? preview.leaveDeduction.toFixed(2) : '0.00'}</span>
+                        </div>
+
+                        {formData.unpaidLeaves === 0 && !fetchingLeaves && formData.employeeId && (
+                          <p className="text-[10px] text-emerald-600 font-medium text-center bg-emerald-50 py-1 rounded-lg mt-1">
+                            ✅ No unpaid leaves for this period
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-gray-500">Working Days (Monthly)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={formData.totalWorkingDays}
+                          onChange={(e) => setFormData({ ...formData, totalWorkingDays: e.target.value })}
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
+                        />
+                      </div>
+                      <div className="p-3 bg-indigo-50/30 rounded-xl border border-dashed border-indigo-100/50">
+                        <p className="text-[10px] text-gray-400 leading-relaxed italic">
+                          Adjustment: Total days in month (e.g. 30 or 31) used for per-day calculation.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-gray-500">Working Days</label>
-                    <input
-                      type="number"
-                      value={formData.totalWorkingDays}
-                      onChange={(e) => setFormData({ ...formData, totalWorkingDays: e.target.value })}
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
-                    />
-                  </div>
+
+                  <p className="text-[10px] text-indigo-500 font-medium bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 leading-relaxed shadow-sm">
+                    ℹ️ <strong>System Note:</strong> Unpaid leave data is fetched automatically from <strong>Approved Leave Requests</strong>. Manual entry is disabled to ensure payroll integrity.
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between">
-                  <span>Deductions (Other)</span>
-                  <button type="button" onClick={addDeduction} className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Row</button>
-                </h3>
-                {formData.deductions.map((e, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      placeholder="Fine/Other"
-                      value={e.componentName}
-                      onChange={(ev) => {
-                        const newDeductions = [...formData.deductions];
-                        newDeductions[i].componentName = ev.target.value;
-                        setFormData({ ...formData, deductions: newDeductions });
-                      }}
-                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Amount"
-                      value={e.amount}
-                      onChange={(ev) => {
-                        const newDeductions = [...formData.deductions];
-                        newDeductions[i].amount = ev.target.value;
-                        setFormData({ ...formData, deductions: newDeductions });
-                      }}
-                      className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
-                    />
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between mb-4">
+                    <span>Deductions (Other)</span>
+                    <button type="button" onClick={addDeduction} className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Row</button>
+                  </h3>
+                  <div className="space-y-2">
+                    {formData.deductions.map((e, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          placeholder="Fine/Other"
+                          value={e.componentName}
+                          onChange={(ev) => {
+                            const newDeductions = [...formData.deductions];
+                            newDeductions[i].componentName = ev.target.value;
+                            setFormData({ ...formData, deductions: newDeductions });
+                          }}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Amount"
+                          value={e.amount}
+                          onChange={(ev) => {
+                            const newDeductions = [...formData.deductions];
+                            newDeductions[i].amount = ev.target.value;
+                            setFormData({ ...formData, deductions: newDeductions });
+                          }}
+                          className="w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm shadow-sm"
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "Tax %", key: "taxPercentage" },
-                    { label: "PF %", key: "pfPercentage" },
-                    { label: "ESI %", key: "esiPercentage" },
-                    { label: "P.Tax (₹)", key: "professionalTax" },
-                  ].map(item => (
-                    <div key={item.key} className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase">{item.label}</label>
-                      <input
-                        type="number"
-                        value={formData[item.key]}
-                        onChange={(e) => setFormData({ ...formData, [item.key]: e.target.value })}
-                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs"
-                      />
-                    </div>
-                  ))}
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-700 mb-4">Statutory & Compliance</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Tax %", key: "taxPercentage" },
+                      { label: "PF %", key: "pfPercentage" },
+                      { label: "ESI %", key: "esiPercentage" },
+                      { label: "P.Tax (₹)", key: "professionalTax" },
+                    ].map(item => (
+                      <div key={item.key} className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{item.label}</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData[item.key]}
+                          onChange={(e) => setFormData({ ...formData, [item.key]: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

@@ -150,10 +150,8 @@ const employeeSchema = new mongoose.Schema(
        💰 SALARY STRUCTURE
     ========================= */
     salaryStructure: {
-      basicSalary: { type: Number, default: 0 },
-      hra: { type: Number, default: 0 },
-      allowance: { type: Number, default: 0 },
-      specialAllowance: { type: Number, default: 0 },
+      basicSalary: { type: Number, required: true, default: 0 },
+      annualSalary: { type: Number, default: 0 },
     },
 
     /* =========================

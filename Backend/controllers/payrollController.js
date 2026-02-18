@@ -20,24 +20,19 @@ const calculateSalary = (data) => {
     totalWorkingDays = 30,
   } = data;
 
-  // Fixed salary
-  const fixedSalary =
-    (parseFloat(salaryStructure.basicSalary) || 0) +
-    (parseFloat(salaryStructure.hra) || 0) +
-    (parseFloat(salaryStructure.allowance) || 0) +
-    (parseFloat(salaryStructure.specialAllowance) || 0);
+  const basicSalary = parseFloat(salaryStructure.basicSalary) || 0;
 
-  // Leave deduction
-  const perDaySalary = fixedSalary / totalWorkingDays;
+  // Leave deduction (ONLY from Basic)
+  const perDaySalary = basicSalary / totalWorkingDays;
   const leaveDeduction = perDaySalary * unpaidLeaves;
 
   // Dynamic earnings
   const extraEarnings = earnings.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
 
-  // Percentage deductions
-  const taxAmount = (fixedSalary * taxPercentage) / 100;
-  const pfAmount = (fixedSalary * pfPercentage) / 100;
-  const esiAmount = (fixedSalary * esiPercentage) / 100;
+  // Percentage deductions (Calculated from Basic)
+  const taxAmount = (basicSalary * taxPercentage) / 100;
+  const pfAmount = (basicSalary * pfPercentage) / 100;
+  const esiAmount = (basicSalary * esiPercentage) / 100;
 
   // Dynamic deductions
   const extraDeductions = deductions.reduce(
@@ -53,8 +48,11 @@ const calculateSalary = (data) => {
     leaveDeduction +
     extraDeductions;
 
-  const grossSalary = fixedSalary + extraEarnings;
-  const netSalary = grossSalary - totalDeductions;
+  const grossSalary = basicSalary + extraEarnings;
+  let netSalary = grossSalary - totalDeductions;
+
+  // Rounding and positive check
+  netSalary = Math.max(0, parseFloat(netSalary.toFixed(2)));
 
   return {
     grossSalary,
@@ -103,7 +101,15 @@ export const payrollController = {
           .status(400)
           .json({ message: "Payroll already exists for this month" });
 
-      const salaryData = calculateSalary(req.body);
+      // Override salaryStructure from DB for security
+      const finalPayload = {
+        ...req.body,
+        salaryStructure: {
+          basicSalary: employee.salaryStructure.basicSalary
+        }
+      };
+
+      const salaryData = calculateSalary(finalPayload);
 
       const payroll = await Payroll.create({
         employeeId,
