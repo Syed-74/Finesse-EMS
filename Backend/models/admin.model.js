@@ -43,7 +43,7 @@ const adminSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: function() {
+      required: function () {
         return !this.ssoProvider; // Password not required for SSO users
       },
     },
@@ -61,13 +61,25 @@ const adminSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["admin","employee"],
+      enum: ["admin", "employee"],
       default: "employee",
     },
 
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    preferences: {
+      emailNotifications: { type: Boolean, default: true },
+      payrollAlerts: { type: Boolean, default: true },
+      leaveAlerts: { type: Boolean, default: true },
+    },
+
+    security: {
+      twoFactorEnabled: { type: Boolean, default: false },
+      lastLoginIP: { type: String },
+      lastLoginTime: { type: Date },
     },
   },
   {

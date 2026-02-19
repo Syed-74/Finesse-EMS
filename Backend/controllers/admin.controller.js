@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
-import Employee from "../models/employee.model.js"; 
+import Employee from "../models/employee.model.js";
 import { generateEmployeeId } from "./employee.controllers.js";
 
 /* =========================
@@ -84,6 +84,11 @@ export const loginAdmin = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // Update security info
+    admin.security.lastLoginIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    admin.security.lastLoginTime = new Date();
+    await admin.save();
+
     res.json({
       message: "Login successful",
       token,
@@ -165,17 +170,17 @@ export const ssoLogin = async (req, res) => {
         firstName,
         lastName,
         email,
-        mobileNumber: '', 
-        password: '', 
+        mobileNumber: '',
+        password: '',
         ssoProvider: 'microsoft',
         isActive: true,
         role: "employee"
       });
     } else {
       admin.isActive = true;
-      if (!admin.firstName) { 
-         admin.firstName = firstName;
-         admin.lastName = lastName;
+      if (!admin.firstName) {
+        admin.firstName = firstName;
+        admin.lastName = lastName;
       }
       await admin.save();
     }
@@ -183,19 +188,19 @@ export const ssoLogin = async (req, res) => {
     // 2. Handle Employee Record (Sync)
     let employee = await Employee.findOne({ email });
     if (!employee) {
-       console.log("Auto-creating employee record for SSO user:", email);
+      console.log("Auto-creating employee record for SSO user:", email);
       //  const employeeId = await generateEmployeeId();
-       employee = await Employee.create({
-         firstName,
-         lastName,
-         email,
-         designation: "Employee",
-         department: "General",
-         dateOfJoining: new Date(),
-         employmentType: "FULL_TIME",
-         isActive: true,
-         password: "" // Optional now
-       });
+      employee = await Employee.create({
+        firstName,
+        lastName,
+        email,
+        designation: "Employee",
+        department: "General",
+        dateOfJoining: new Date(),
+        employmentType: "FULL_TIME",
+        isActive: true,
+        password: "" // Optional now
+      });
     }
 
     // Generate Token
@@ -227,4 +232,74 @@ export const ssoLogin = async (req, res) => {
 ========================= */
 export const logoutAdmin = async (req, res) => {
   res.json({ message: "Logged out successfully" });
+};
+
+/* =========================
+   CHANGE PASSWORD
+   ========================= */
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const admin = await Admin.findById(req.admin.id);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // SSO users might not have a password
+    if (admin.ssoProvider && !admin.password) {
+      return res.status(400).json({ message: "SSO users cannot change password via this method" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid current password" });
+    }
+
+    // Prevent reusing the same password
+    const isSame = await bcrypt.compare(newPassword, admin.password);
+    if (isSame) {
+      return res.status(400).json({ message: "New password cannot be the same as current password" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    admin.password = hashedPassword;
+    await admin.save();
+
+    res.json({ message: "Password changed successfully. Please log in again." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* =========================
+   UPDATE ADMIN PREFERENCES
+   ========================= */
+export const updateAdminPreferences = async (req, res) => {
+  try {
+    const { preferences, security } = req.body;
+
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (preferences) {
+      admin.preferences = { ...admin.preferences, ...preferences };
+    }
+
+    if (security && typeof security.twoFactorEnabled !== 'undefined') {
+      admin.security.twoFactorEnabled = security.twoFactorEnabled;
+    }
+
+    await admin.save();
+
+    res.json({
+      message: "Settings updated successfully",
+      preferences: admin.preferences,
+      security: admin.security
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
