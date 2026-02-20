@@ -63,7 +63,7 @@ const attendanceSchema = new mongoose.Schema(
       enum: ["Office", "Remote", "Hybrid"],
       default: "Office"
     },
-    
+
     // 📸 Proof of Attendance
     selfieUrl: {
       type: String, // Path to uploaded selfie
@@ -77,8 +77,14 @@ const attendanceSchema = new mongoose.Schema(
     },
 
     deviceInfo: {
-        userAgent: String,
-        ip: String
+      userAgent: String,
+      ip: String,
+      // 🌐 IP Validation Result: 'Office' | 'Remote' | 'Unauthorized'
+      networkType: {
+        type: String,
+        enum: ["Office", "Remote", "Unauthorized"],
+        default: "Remote"
+      }
     },
 
     remarks: {

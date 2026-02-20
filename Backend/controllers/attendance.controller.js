@@ -1,8 +1,40 @@
 import Attendance from "../models/attendance.model.js";
 
 /* =========================
-   PUNCH IN
+   🌐 IP VALIDATION CONFIG
 ========================= */
+// ✅ Add more IPs here for scalability (supports IPv4 + IPv6-mapped)
+const allowedOfficeIPs = [
+  "192.168.29.24",
+  "::ffff:192.168.29.24", // IPv6-mapped IPv4
+  "::1",                  // localhost (dev)
+  "127.0.0.1"             // localhost (dev)
+];
+
+/**
+ * Normalize IPv6-mapped IPv4 addresses to plain IPv4.
+ * e.g., "::ffff:192.168.29.24" → "192.168.29.24"
+ */
+function normalizeIP(ip) {
+  if (!ip) return "";
+  if (ip.startsWith("::ffff:")) {
+    return ip.replace("::ffff:", "");
+  }
+  return ip;
+}
+
+/**
+ * Get the real client IP, honoring X-Forwarded-For when behind a proxy.
+ */
+function getClientIP(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) {
+    // X-Forwarded-For can be a comma-separated list; take first
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || req.connection?.remoteAddress || "";
+}
+
 /* =========================
    PUNCH IN
 ========================= */
@@ -29,7 +61,6 @@ export const punchIn = async (req, res) => {
     // 2. Process Location & Geofencing
     let locationData = {};
     let isInsideOffice = false;
-
 
     if (req.body.location) {
       try {
@@ -62,7 +93,57 @@ export const punchIn = async (req, res) => {
       return res.status(400).json({ message: "Selfie is mandatory for attendance." });
     }
 
-    // 4. Create Record
+    /* =====================================================
+       🔐 IP-BASED ATTENDANCE VALIDATION (New Feature)
+       =====================================================
+       Fetches employee.workLocation from DB (set by Admin).
+       selectedWorkLocation = what employee selected on punch-in form.
+       employeeWorkLocation = what Admin configured (OFFICE/REMOTE/HYBRID).
+    ===================================================== */
+    const rawIP = getClientIP(req);
+    const clientIP = normalizeIP(rawIP);
+    const selectedWorkLocation = req.body.workLocation || "Office"; // from form
+    const employeeWorkLocation = (req.employee.workLocation || "OFFICE").toUpperCase();
+
+    console.log(`[IP VALIDATION] Employee: ${req.employee.email} | Raw IP: ${rawIP} | Normalized IP: ${clientIP}`);
+    console.log(`[IP VALIDATION] Admin-set workLocation: ${employeeWorkLocation} | Selected: ${selectedWorkLocation}`);
+
+    // Determine if IP validation is required
+    let requiresOfficeIP = false;
+
+    if (employeeWorkLocation === "OFFICE") {
+      // Must always punch from office IP
+      requiresOfficeIP = true;
+    } else if (employeeWorkLocation === "HYBRID") {
+      // Only required if employee selected "Office" location
+      if (selectedWorkLocation === "Office") {
+        requiresOfficeIP = true;
+      }
+    }
+    // REMOTE: no IP restriction
+
+    // Check if IP is allowed
+    const isOfficeIP = allowedOfficeIPs.includes(clientIP) || allowedOfficeIPs.includes(rawIP);
+
+    // Determine networkType for badge display
+    let networkType = "Remote";
+    if (isOfficeIP) {
+      networkType = "Office";
+    } else if (requiresOfficeIP) {
+      networkType = "Unauthorized";
+    }
+
+    // Block if required office IP but didn't match
+    if (requiresOfficeIP && !isOfficeIP) {
+      console.warn(`[SECURITY] Unauthorized punch-in attempt by ${req.employee.email} from IP: ${clientIP}`);
+      return res.status(403).json({
+        message: "Admin has set your onsite location. Please mark attendance from office network.",
+        code: "OFFICE_IP_REQUIRED",
+        clientIP
+      });
+    }
+
+    // 4. Create Attendance Record
     const attendance = await Attendance.create({
       employee: employeeId,
       date: today,
@@ -71,12 +152,13 @@ export const punchIn = async (req, res) => {
         minute: "2-digit"
       }),
       status: "PRESENT",
-      workLocation: req.body.workLocation || "Office",
+      workLocation: selectedWorkLocation,
       selfieUrl,
       location: locationData,
       deviceInfo: {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip
+        userAgent: req.headers["user-agent"],
+        ip: clientIP,
+        networkType
       }
     });
 
