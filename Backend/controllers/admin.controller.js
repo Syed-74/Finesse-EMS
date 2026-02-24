@@ -1,15 +1,18 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
 import Employee from "../models/employee.model.js";
 import { generateEmployeeId } from "./employee.controllers.js";
+import microsoftGraphService from "../services/microsoftGraph.service.js";
+import authService from "../services/auth.service.js";
+import employeeService from "../services/employee.service.js";
 
 /* =========================
    EMAIL DOMAIN VALIDATION
 ========================= */
-const allowedDomains = ["finesse-cs.tech", "andemail.com"];
+const allowedDomains = ["finesse-cs.tech", "email.com"];
 
 const isAllowedEmail = (email) => {
+  if (!email) return false;
   const domain = email.split("@")[1];
   return allowedDomains.includes(domain);
 };
@@ -25,7 +28,7 @@ export const registerAdmin = async (req, res) => {
     if (!isAllowedEmail(email)) {
       return res.status(400).json({
         message:
-          "Email domain not allowed. Use @finesse-cs.tech or @andemail.com",
+          "Email domain not allowed. Use @finesse-cs.tech or @email.com",
       });
     }
 
@@ -78,11 +81,7 @@ export const loginAdmin = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign(
-      { id: admin._id, role: admin.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = authService.generateToken(admin);
 
     // Update security info
     admin.security.lastLoginIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -149,66 +148,62 @@ export const updateAdminProfile = async (req, res) => {
 ========================= */
 export const ssoLogin = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, accessToken } = req.body;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log("-----------------------------------------");
+      console.log("SSO LOGIN ATTEMPT:", { name, email, hasToken: !!accessToken });
+    }
 
     // ✅ Email domain restriction
     if (!isAllowedEmail(email)) {
       return res.status(400).json({
-        message:
-          "Email domain not allowed. Use @finesse-cs.tech or @andemail.com",
+        message: "Email domain not allowed. Use @finesse-cs.tech or @email.com",
       });
     }
 
-    // 1. Handle Admin/Auth User
-    let admin = await Admin.findOne({ email });
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0] || name;
-    const lastName = nameParts.slice(1).join(' ') || '.';
+    let graphData = null;
+    let profileImageUrl = null;
 
-    if (!admin) {
-      admin = await Admin.create({
-        firstName,
-        lastName,
-        email,
-        mobileNumber: '',
-        password: '',
-        ssoProvider: 'microsoft',
-        isActive: true,
-        role: "employee"
-      });
-    } else {
-      admin.isActive = true;
-      if (!admin.firstName) {
-        admin.firstName = firstName;
-        admin.lastName = lastName;
+    if (accessToken) {
+      try {
+        // 1. Fetch data from MS Graph
+        graphData = await microsoftGraphService.getProfile(accessToken);
+
+        // 2. Handle Profile Photo
+        const photoBuffer = await microsoftGraphService.getProfilePhoto(accessToken);
+        if (photoBuffer) {
+          profileImageUrl = employeeService.saveProfilePhoto(photoBuffer, graphData.microsoftId || email);
+        }
+      } catch (graphError) {
+        console.error("Microsoft Graph Sync Error:", graphError.message);
       }
-      await admin.save();
     }
 
-    // 2. Handle Employee Record (Sync)
-    let employee = await Employee.findOne({ email });
-    if (!employee) {
-      console.log("Auto-creating employee record for SSO user:", email);
-      //  const employeeId = await generateEmployeeId();
-      employee = await Employee.create({
-        firstName,
-        lastName,
+    // Fallback graphData if MS Graph fails or no token
+    if (!graphData) {
+      const nameParts = (name || email.split('@')[0]).split(' ');
+      graphData = {
         email,
-        designation: "Employee",
-        department: "General",
-        dateOfJoining: new Date(),
-        employmentType: "FULL_TIME",
-        isActive: true,
-        password: "" // Optional now
-      });
+        firstName: nameParts[0] || "User",
+        lastName: nameParts.slice(1).join(' ') || '.',
+        microsoftId: null,
+      };
     }
 
-    // Generate Token
-    const token = jwt.sign(
-      { id: admin._id, role: admin.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    // 3. Sync Admin/User record
+    const admin = await authService.syncAdminRecord(graphData, profileImageUrl);
+
+    // 4. Sync Employee record
+    await employeeService.upsertEmployeeFromGraph(graphData, profileImageUrl);
+
+    // 5. Generate Token
+    const token = authService.generateToken(admin);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log("SSO LOGIN COMPLETE for", email);
+      console.log("-----------------------------------------");
+    }
 
     res.json({
       message: "SSO Login successful",
@@ -219,11 +214,16 @@ export const ssoLogin = async (req, res) => {
         lastName: admin.lastName,
         email: admin.email,
         role: admin.role,
+        profileImage: admin.profileImage
       },
     });
   } catch (error) {
-    console.error("SSO Login Error:", error);
-    res.status(500).json({ message: error.message });
+    console.error("CRITICAL SSO ERROR:", error);
+    res.status(500).json({
+      message: "SSO Processing Failed",
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -301,5 +301,33 @@ export const updateAdminPreferences = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/* =========================
+   BATCH SYNC ALL USERS
+   ========================= */
+export const syncAllUsers = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({ message: "Microsoft Access Token is required for batch sync." });
+    }
+
+    // This might take a long time, ideally run in background
+    // For now we'll run it and return results
+    const results = await employeeService.syncAllUsers(accessToken);
+
+    res.json({
+      message: "Batch sync completed successfully",
+      results
+    });
+  } catch (error) {
+    console.error("Batch Sync Controller Error:", error);
+    res.status(500).json({
+      message: "Batch sync failed",
+      error: error.message
+    });
   }
 };

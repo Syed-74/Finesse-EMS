@@ -141,9 +141,9 @@ const Login = () => {
       const res = await axios.post(
         "http://localhost:5000/api/auth/sso-login",
         {
-          name: profile.data.displayName,
-          email: profile.data.mail || profile.data.userPrincipalName,
-
+          name: accounts[0].name,
+          email: accounts[0].username,
+          accessToken: token // sending token for backend sync
         },
         {
           withCredentials: true,

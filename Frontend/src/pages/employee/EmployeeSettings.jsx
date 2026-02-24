@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Shield,
-  Upload
+  Upload,
+  Globe,
+  RefreshCcw
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
 
@@ -97,59 +99,86 @@ const EmployeeSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50/50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent shadow-lg shadow-indigo-100"></div>
+          <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-xs">Loading Secure Profile...</p>
+        </div>
       </div>
     );
   }
 
   if (!profileData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-slate-500">
-        <AlertCircle className="w-12 h-12 mb-4 text-red-400" />
-        <p>Unable to load employee profile.</p>
+      <div className="flex flex-col items-center justify-center min-h-screen text-slate-500 bg-slate-50/50 p-6">
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl max-w-md text-center">
+          <AlertCircle className="w-16 h-16 mb-6 text-rose-500 mx-auto" />
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Access Denied</h2>
+          <p className="text-slate-500 mb-6">We were unable to retrieve your employee profile data. Please try logging in again or contact IT support.</p>
+          <button onClick={() => window.location.reload()} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:-translate-y-1 transition-all">Retry Access</button>
+        </div>
       </div>
     );
   }
 
+  const formatSyncDate = (date) => {
+    if (!date) return "Never Synced";
+    return new Date(date).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
-    <div className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 lg:p-12 space-y-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-200 pb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Personal Settings</h1>
-          <p className="text-slate-500 mt-1 font-medium">Manage your personal information and preferences.</p>
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-none">Employee Settings</h1>
+          <p className="text-slate-500 mt-2 font-medium">Manage your enterprise profile and security preferences.</p>
         </div>
-        {message.text && (
-          <div className={`px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-bold ${message.type === "success" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"
-            }`}>
-            {message.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-            {message.text}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {profileData.lastGraphSync && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100 text-xs font-bold shadow-sm">
+              <RefreshCcw className="w-3.5 h-3.5 animate-pulse" />
+              Last Sync: {formatSyncDate(profileData.lastGraphSync)}
+            </div>
+          )}
+          {message.text && (
+            <div className={`px-4 py-2 rounded-xl flex items-center gap-3 text-xs font-bold animate-in zoom-in duration-300 ${message.type === "success" ? "bg-indigo-50 text-indigo-600 border border-indigo-100" : "bg-rose-50 text-rose-600 border border-rose-100"
+              }`}>
+              {message.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {message.text}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-        {/* LEFT COLUMN - Profile Picture & Basic Info */}
-        <div className="lg:col-span-1 space-y-8">
+        {/* LEFT COLUMN - Profile Picture & Basic Info (4 Cols) */}
+        <div className="lg:col-span-4 space-y-8">
 
-          {/* Section 1: Profile Picture */}
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10"></div>
+          {/* Section 1: Profile Picture Card */}
+          <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-xl shadow-slate-200/50 relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-600 opacity-10"></div>
+            <div className="absolute -right-12 -top-12 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl"></div>
 
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="relative mb-6">
-                <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100">
+              <div className="relative mb-8">
+                <div className="w-36 h-36 md:w-40 md:h-40 rounded-[2.5rem] border-[6px] border-white shadow-2xl overflow-hidden bg-white ring-1 ring-slate-100">
                   <img
-                    src={previewImage || (profileData.profileImage ? `http://localhost:5000${profileData.profileImage}` : "https://ui-avatars.com/api/?name=" + profileData.firstName + "+" + profileData.lastName)}
+                    src={previewImage || (profileData.profileImage ? `http://localhost:5000${profileData.profileImage}` : "https://ui-avatars.com/api/?name=" + profileData.firstName + "+" + profileData.lastName + "&background=6366f1&color=fff&size=200")}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                 </div>
-                <label className="absolute bottom-0 right-0 p-2 bg-indigo-600 text-white rounded-full cursor-pointer hover:bg-indigo-700 transition-colors shadow-lg">
-                  <Camera className="w-4 h-4" />
+                <label className="absolute -bottom-2 -right-2 p-3 bg-indigo-600 text-white rounded-2xl cursor-pointer hover:bg-slate-900 transition-all shadow-xl hover:scale-110 active:scale-95 border-2 border-white">
+                  <Camera className="w-5 h-5" />
                   <input
                     type="file"
                     className="hidden"
@@ -159,108 +188,116 @@ const EmployeeSettings = () => {
                 </label>
               </div>
 
-              <h2 className="text-xl font-black text-slate-900">{profileData.firstName} {profileData.lastName}</h2>
-              <p className="text-sm text-slate-500 font-bold uppercase tracking-wider mt-1">{profileData.designation}</p>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{profileData.firstName} {profileData.lastName}</h2>
+              <div className="inline-flex items-center gap-2 mt-2 px-4 py-1.5 bg-slate-900 text-white rounded-full">
+                <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">{profileData.designation}</span>
+              </div>
 
-              <div className={`mt-6 transition-all duration-300 ${selectedImage ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+              <div className={`mt-8 transition-all duration-500 ${selectedImage ? 'opacity-100 translate-y-0 max-h-24' : 'opacity-0 translate-y-4 max-h-0 overflow-hidden'}`}>
                 <button
                   onClick={executeUpload}
                   disabled={uploading}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-3 px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-200 hover:shadow-indigo-400 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
                   {uploading ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <Save className="w-4 h-4" />
+                    <Save className="w-5 h-5 group-hover:animate-bounce" />
                   )}
-                  {uploading ? "Saving..." : "Save New Picture"}
+                  {uploading ? "SYNCING..." : "UPDATE PHOTO"}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Contact Info (Read Only) */}
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-              <User className="w-4 h-4 text-indigo-500" />
-              Contact Details
+          {/* Contact Details Card */}
+          <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-lg shadow-slate-100/50">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
+              <span className="w-8 h-1 bg-indigo-600 rounded-full"></span>
+              Contact Hub
             </h3>
 
-            <div className="space-y-5">
-              <div className="group">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Email Address</label>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-500 group-hover:border-indigo-100 transition-colors">
-                  <Mail className="w-4 h-4 text-indigo-400" />
-                  <span className="text-sm font-medium">{profileData.email}</span>
+            <div className="space-y-6">
+              {[
+                { icon: <Mail className="w-4 h-4" />, color: "indigo", label: "Corporate Email", value: profileData.email },
+                { icon: <Phone className="w-4 h-4" />, color: "emerald", label: "Mobile Number", value: profileData.mobileNumber || "Unavailable" },
+                { icon: <MapPin className="w-4 h-4" />, color: "rose", label: "Work Location", value: profileData.officeLocation || "HQ / Remote" }
+              ].map((item, i) => (
+                <div key={i} className="group cursor-default">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">{item.label}</label>
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:border-indigo-200 group-hover:bg-white transition-all duration-300">
+                    <div className={`p-2 rounded-xl bg-${item.color}-50 text-${item.color}-600`}>
+                      {item.icon}
+                    </div>
+                    <span className="text-sm font-bold text-slate-700 truncate">{item.value}</span>
+                  </div>
                 </div>
-              </div>
-
-              <div className="group">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Phone Number</label>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-500 group-hover:border-indigo-100 transition-colors">
-                  <Phone className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm font-medium">{profileData.mobileNumber || "Not Provided"}</span>
-                </div>
-              </div>
-
-              <div className="group">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Address</label>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-500 group-hover:border-indigo-100 transition-colors">
-                  <MapPin className="w-4 h-4 text-rose-400" />
-                  <span className="text-sm font-medium truncate">{profileData.address || "Not Provided"}</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN - Work Info & Settings */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* RIGHT COLUMN - Enterprise Profile (8 Cols) */}
+        <div className="lg:col-span-8 space-y-8">
 
-          {/* Section 2: Work Information */}
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-indigo-500" />
-                Professional Profile
-              </h3>
-              <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-                Read Only
-              </span>
+          {/* Professional Data Grid */}
+          <div className="bg-white rounded-[2rem] p-6 md:p-10 border border-slate-200 shadow-xl shadow-slate-200/50 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <Building2 className="w-32 h-32 text-slate-900" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 relative z-10">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-4">
+                <Building2 className="w-6 h-6 text-indigo-600" />
+                Enterprise Asset Profile
+              </h3>
+              <div className="px-5 py-2 bg-slate-100 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-slate-200 flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5" />
+                AD SYNCHRONIZED
+              </div>
+            </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Employee ID</label>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-600">
-                  <Shield className="w-5 h-5 text-slate-400" />
-                  <span className="font-bold tracking-tight">{profileData.employeeCode || profileData._id?.substring(0, 8).toUpperCase()}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Employee Signature Code</label>
+                <div className="flex items-center gap-4 p-5 bg-slate-900 text-white rounded-3xl border border-slate-800 shadow-inner group transition-all">
+                  <div className="p-2.5 bg-slate-800 rounded-xl text-indigo-400 group-hover:scale-110 transition-transform">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <span className="text-lg font-black tracking-widest uppercase">{profileData.employeeCode || profileData._id?.substring(0, 8).toUpperCase()}</span>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Department</label>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-600">
-                  <Building2 className="w-5 h-5 text-slate-400" />
-                  <span className="font-bold tracking-tight">{profileData.department}</span>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Department</label>
+                <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-800">{profileData.department}</span>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Designation</label>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-600">
-                  <Briefcase className="w-5 h-5 text-slate-400" />
-                  <span className="font-bold tracking-tight">{profileData.designation}</span>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hierarchy Placement</label>
+                <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+                    <Briefcase className="w-5 h-5" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-800">{profileData.designation}</span>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Date of Joining</label>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-600">
-                  <Calendar className="w-5 h-5 text-slate-400" />
-                  <span className="font-bold tracking-tight">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Organizational Entry Date</label>
+                <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-800">
                     {new Date(profileData.dateOfJoining).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
@@ -270,57 +307,67 @@ const EmployeeSettings = () => {
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Reporting Manager</label>
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-600">
-                  <Users className="w-5 h-5 text-slate-400" />
-                  <span className="font-bold tracking-tight">
-                    {/* We might need to populate this on backend or just show ID if name not provided */}
-                    {typeof profileData.reportingManager === 'object'
-                      ? `${profileData.reportingManager?.firstName || 'Unknown'} ${profileData.reportingManager?.lastName || ''}`
-                      : "HR Department"}
-                  </span>
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Direct Reporting Manager</label>
+                <div className="flex items-center gap-4 p-5 bg-indigo-50/30 rounded-3xl border border-indigo-100 group">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg group-hover:rotate-12 transition-transform shadow-lg shadow-indigo-100">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg font-black text-indigo-900 uppercase tracking-tight">
+                      {typeof profileData.reportingManager === 'object'
+                        ? `${profileData.reportingManager?.firstName || 'ADMINISTRATOR'} ${profileData.reportingManager?.lastName || ''}`
+                        : "HR OPERATIONS"}
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">AUTHORIZED SUPERVISOR</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Section 3: Notification Preferences (Mock / Disabled) */}
-          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm opacity-90">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                <Bell className="w-4 h-4 text-indigo-500" />
-                Preferences
-              </h3>
-            </div>
+          {/* Regional & Address Information */}
+          <div className="bg-white rounded-[2rem] p-6 md:p-10 border border-slate-200 shadow-xl shadow-slate-200/50">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-4 mb-10">
+              <Globe className="w-5 h-5 text-indigo-600" />
+              Regional & Physical Placement
+            </h3>
 
-            <div className="space-y-4">
-              {[
-                { label: "Attendance Reminders", desc: "Get notified when you forget to punch out.", active: true },
-                { label: "Leave Approval Notifications", desc: "Receive updates on your leave requests.", active: true },
-                { label: "Email Alerts", desc: "Receive important system announcements via email.", active: false }
-              ].map((pref, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl bg-slate-50/50">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-700">{pref.label}</h4>
-                    <p className="text-xs text-slate-400">{pref.desc}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-4 md:col-span-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registered Residential/Work Address</label>
+                <div className="flex items-start gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100 min-h-[100px]">
+                  <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl mt-1">
+                    <MapPin className="w-5 h-5" />
                   </div>
-                  {/* Disabled Toggle Switch */}
-                  <div className={`w-11 h-6 flex items-center rounded-full p-1 cursor-not-allowed ${pref.active ? 'bg-indigo-300' : 'bg-slate-200'}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${pref.active ? 'translate-x-5' : ''}`}></div>
-                  </div>
+                  <p className="text-slate-700 font-bold leading-relaxed">
+                    {profileData.address ? `${profileData.address}, ${profileData.city || ''}, ${profileData.state || ''}, ${profileData.country || ''}` : "Physical address data is secured or unavailable."}
+                  </p>
                 </div>
-              ))}
-              <div className="text-center mt-4">
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest italic">
-                  Note: Notification settings are managed by system administration.
-                </p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-center space-y-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Operational City</span>
+                <span className="text-base font-black text-slate-800 uppercase">{profileData.city || "N/A"}</span>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-center space-y-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Assigned State</span>
+                <span className="text-base font-black text-slate-800 uppercase">{profileData.state || "N/A"}</span>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-center space-y-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Global Region</span>
+                <span className="text-base font-black text-slate-800 uppercase">{profileData.country || "N/A"}</span>
               </div>
             </div>
           </div>
 
         </div>
 
+      </div>
+
+      {/* Footer Branding */}
+      <div className="pt-12 text-center opacity-30">
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400">Finesse Enterprise Management System — Secured Profile Console</p>
       </div>
     </div>
   );

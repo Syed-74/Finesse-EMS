@@ -118,6 +118,17 @@ const employeeSchema = new mongoose.Schema(
       default: "OFFICE",
     },
 
+    officeLocation: {
+      type: String,
+      trim: true,
+    },
+
+    microsoftId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
     shift: {
       type: String,
       enum: ["DAY", "NIGHT", "CUSTOM"],
@@ -191,6 +202,10 @@ const employeeSchema = new mongoose.Schema(
     },
 
     deletedAt: {
+      type: Date,
+    },
+
+    lastGraphSync: {
       type: Date,
     },
   },

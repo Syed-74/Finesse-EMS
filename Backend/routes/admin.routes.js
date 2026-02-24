@@ -8,6 +8,7 @@ import {
   logoutAdmin,
   changePassword,
   updateAdminPreferences,
+  syncAllUsers,
 } from "../controllers/admin.controller.js";
 
 import { protectAdmin } from "../middleware/adminAuth.middleware.js";
@@ -23,6 +24,7 @@ router.post("/logout", logoutAdmin);
 router.get("/profile", protectAdmin, getAdminProfile);
 router.put("/profile", protectAdmin, upload.single("profileImage"), updateAdminProfile);
 router.put("/change-password", protectAdmin, changePassword);
-router.put("/settings", protectAdmin, updateAdminPreferences);
+router.put("/preferences", protectAdmin, updateAdminPreferences);
+router.post("/sync/all", protectAdmin, syncAllUsers);
 
 export default router;

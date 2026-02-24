@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import ProfileAvatar from "../../../components/ProfileAvatar";
+import { useAuth } from "../../../AuthContext/AuthContext";
 import {
   Search,
   Filter,
@@ -51,10 +52,14 @@ export default function Employees() {
   const [currentEmployee, setCurrentEmployee] = useState(null);
   const [confirmAction, setConfirmAction] = useState({ type: "", action: () => { } });
 
+  const { admin: authAdmin, loading: authLoading } = useAuth();
+
   // Fetch Employees
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (!authLoading && authAdmin) {
+      fetchEmployees();
+    }
+  }, [authLoading, authAdmin]);
 
   const fetchEmployees = async () => {
     try {
@@ -228,32 +233,43 @@ export default function Employees() {
   const renderStepContent = () => {
     if (!currentEmployee) return null;
 
+    const isMSUser = !!currentEmployee.microsoftId;
+
     switch (currentStep) {
       case 1: // Personal
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="col-span-2 md:col-span-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">First Name</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                First Name {isMSUser && <span className="text-[10px] lowercase text-blue-500">(managed by Microsoft)</span>}
+              </label>
               <input
-                className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
+                className={`w-full border border-gray-300 rounded-lg p-2.5 ${isMSUser ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 outline-none'}`}
                 value={currentEmployee.firstName}
-                readOnly
+                onChange={e => !isMSUser && setCurrentEmployee({ ...currentEmployee, firstName: e.target.value })}
+                readOnly={isMSUser}
               />
             </div>
             <div className="col-span-2 md:col-span-1">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Last Name</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Last Name {isMSUser && <span className="text-[10px] lowercase text-blue-500">(managed by Microsoft)</span>}
+              </label>
               <input
-                className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
+                className={`w-full border border-gray-300 rounded-lg p-2.5 ${isMSUser ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 outline-none'}`}
                 value={currentEmployee.lastName}
-                readOnly
+                onChange={e => !isMSUser && setCurrentEmployee({ ...currentEmployee, lastName: e.target.value })}
+                readOnly={isMSUser}
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Email {isMSUser && <span className="text-[10px] lowercase text-blue-500">(managed by Microsoft)</span>}
+              </label>
               <input
-                className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 text-gray-600 cursor-not-allowed"
+                className={`w-full border border-gray-300 rounded-lg p-2.5 ${isMSUser ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 outline-none'}`}
                 value={currentEmployee.email}
-                readOnly
+                onChange={e => !isMSUser && setCurrentEmployee({ ...currentEmployee, email: e.target.value })}
+                readOnly={isMSUser}
               />
             </div>
             <div className="col-span-2 md:col-span-1">
@@ -284,19 +300,25 @@ export default function Employees() {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Designation / Role</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Designation / Role {isMSUser && <span className="text-[10px] lowercase text-blue-500">(managed by Microsoft)</span>}
+              </label>
               <input
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`w-full border border-gray-300 rounded-lg p-2.5 ${isMSUser ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 outline-none'}`}
                 value={currentEmployee.designation}
-                onChange={e => setCurrentEmployee({ ...currentEmployee, designation: e.target.value })}
+                onChange={e => !isMSUser && setCurrentEmployee({ ...currentEmployee, designation: e.target.value })}
+                readOnly={isMSUser}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Department</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                Department {isMSUser && <span className="text-[10px] lowercase text-blue-500">(managed by Microsoft)</span>}
+              </label>
               <input
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`w-full border border-gray-300 rounded-lg p-2.5 ${isMSUser ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 outline-none'}`}
                 value={currentEmployee.department}
-                onChange={e => setCurrentEmployee({ ...currentEmployee, department: e.target.value })}
+                onChange={e => !isMSUser && setCurrentEmployee({ ...currentEmployee, department: e.target.value })}
+                readOnly={isMSUser}
               />
             </div>
             <div>

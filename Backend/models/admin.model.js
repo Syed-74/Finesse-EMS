@@ -81,6 +81,10 @@ const adminSchema = new mongoose.Schema(
       lastLoginIP: { type: String },
       lastLoginTime: { type: Date },
     },
+
+    lastGraphSync: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
