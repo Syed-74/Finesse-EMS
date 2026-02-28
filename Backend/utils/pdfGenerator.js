@@ -126,7 +126,7 @@ export const generatePayslipPDF = (payroll, res) => {
    items.forEach(item => {
       if (item.amount > 0) {
          doc.text(item.label, marginLeft + 10, currentY);
-         doc.text(`₹${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
+         doc.text(`Rs ${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
          currentY += 20;
 
          doc.strokeColor('#eeeeee')
@@ -143,7 +143,7 @@ export const generatePayslipPDF = (payroll, res) => {
    doc.fillColor('#000000')
       .text('GROSS PAY', marginLeft + 10, currentY + 8);
 
-   doc.text(`₹${payroll.grossSalary.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
+   doc.text(`Rs ${payroll.grossSalary.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
 
    currentY += 40;
 
@@ -175,7 +175,7 @@ export const generatePayslipPDF = (payroll, res) => {
    deductionItems.forEach(item => {
       if (item.amount > 0) {
          doc.text(item.label, marginLeft + 10, currentY);
-         doc.text(`₹${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
+         doc.text(`Rs ${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
          currentY += 20;
 
          doc.strokeColor('#eeeeee')
@@ -192,7 +192,7 @@ export const generatePayslipPDF = (payroll, res) => {
    doc.fillColor('#000000')
       .text('TOTAL DEDUCTIONS', marginLeft + 10, currentY + 8);
 
-   doc.text(`₹${payroll.totalDeductions.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
+   doc.text(`Rs ${payroll.totalDeductions.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
 
    currentY += 40;
 
@@ -204,7 +204,7 @@ export const generatePayslipPDF = (payroll, res) => {
       .fontSize(14)
       .text('NET PAY', marginLeft + 20, currentY + 13);
 
-   doc.text(`₹${payroll.netSalary.toLocaleString()}`, marginRight - 70, currentY + 13, { align: 'right' });
+   doc.text(`Rs ${payroll.netSalary.toLocaleString()}`, marginRight - 70, currentY + 13, { align: 'right' });
 
    // ================= FOOTER =================
 
