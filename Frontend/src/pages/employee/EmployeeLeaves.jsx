@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { toast } from "react-hot-toast";
 import { useAuth } from "../../AuthContext/AuthContext";
 import {
   format,
@@ -21,10 +22,11 @@ import {
   XCircle,
   PlusCircle,
   History,
-  Briefcase,
   ChevronLeft,
   ChevronRight,
-  Users
+  Users,
+  AlertCircle,
+  Briefcase
 } from "lucide-react";
 
 /* =========================================
@@ -34,7 +36,7 @@ import {
    COMPONENT: ADVANCED SMART CALENDAR VIEW
 ========================================= */
 const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) => {
-  const [currentDate, setCurrentDate] = useState(new Date()); 
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -88,8 +90,8 @@ const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) 
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className={`text-sm font-black transition-all ${isToday
-                      ? "bg-indigo-600 text-white w-8 h-8 flex items-center justify-center rounded-xl shadow-lg shadow-indigo-200 scale-110"
-                      : weekend ? "text-gray-300" : "text-gray-900"
+                    ? "bg-indigo-600 text-white w-8 h-8 flex items-center justify-center rounded-xl shadow-lg shadow-indigo-200 scale-110"
+                    : weekend ? "text-gray-300" : "text-gray-900"
                     }`}>
                     {format(day, "d")}
                   </span>
@@ -171,7 +173,7 @@ const EmployeeLeaves = () => {
 
   // Form
   const [formData, setFormData] = useState({
-    leaveType: "Casual",
+    leaveType: "CASUAL",
     startDate: "",
     endDate: "",
     reason: "",
@@ -189,32 +191,63 @@ const EmployeeLeaves = () => {
 
     try {
       setLoading(true);
-      const [userRes, calendarRes] = await Promise.all([
+
+      const [leaveRes, settingsRes, allLeavesRes] = await Promise.all([
         axios.get(`http://localhost:5000/api/leavemanagement/employee/${userId}`),
-        axios.get(`http://localhost:5000/api/leavemanagement/calendar`)
+        axios.get(`http://localhost:5000/api/leavemanagement/settings`),
+        axios.get(`http://localhost:5000/api/leavemanagement/`)
       ]);
 
-      // ✅ Normalize Balance Data
-      const rawBalance = userRes.data.balance || {};
-      const categories = ["Casual", "Sick", "Paid", "Unpaid"];
-      const normalized = {};
+      const myLeaves = leaveRes.data.data || [];
+      const settings = settingsRes.data.data;
+      const allLeaves = allLeavesRes.data.data || [];
 
-      categories.forEach(type => {
-        const detail = rawBalance.detailedBalance?.[type];
-        const legacy = rawBalance.leaveTypeWiseBalance?.[type];
+      setHistory(myLeaves);
+      setHolidays(settings?.holidays || []);
 
-        normalized[type] = {
-          total: detail?.total ?? (legacy || 0),
-          used: detail?.used ?? 0,
-          remaining: detail?.remaining ?? (detail ? (detail.total - detail.used) : (legacy || 0)),
-          max: detail?.maxLeaves || (detail?.total || legacy || 0)
-        };
-      });
+      // Team Leaves = All approved leaves except mine
+      const team = allLeaves.filter(
+        l => (l.employeeId?._id || l.employeeId) !== userId && l.status === "Approved"
+      );
+      setTeamLeaves(team.map(l => ({
+        ...l,
+        start: l.startDate,
+        end: l.endDate,
+        employeeName: l.employeeId?.name || "Employee"
+      })));
 
-      setBalance(normalized);
-      setHistory(userRes.data.leaves);
-      setHolidays(userRes.data.holidays);
-      setTeamLeaves(calendarRes.data.filter(e => e.employeeId !== userId)); // Remove self
+      // Build balance dynamically from policy
+      const balanceData = {};
+      if (settings?.leaveTypes) {
+        settings.leaveTypes.forEach(policy => {
+          const used = myLeaves
+            .filter(l => l.leaveType === policy.leaveType && l.status === "Approved")
+            .reduce((sum, l) => sum + l.totalDays, 0);
+
+          let allocated = 0;
+          if (policy.allocationType === "YEARLY") {
+            allocated = policy.totalPerYear;
+          } else {
+            const currentMonth = new Date().getMonth() + 1;
+            allocated = policy.monthlyAccrual * currentMonth;
+          }
+
+          balanceData[policy.leaveType] = {
+            total: allocated,
+            used,
+            remaining: allocated - used,
+            max: policy.totalPerYear
+          };
+        });
+      }
+
+      setBalance(balanceData);
+
+      // Set default leave type if not set
+      if (settings?.leaveTypes?.length > 0 && !formData.leaveType) {
+        setFormData(prev => ({ ...prev, leaveType: settings.leaveTypes[0].leaveType }));
+      }
+
     } catch (error) {
       console.error("Fetch error", error);
     } finally {
@@ -252,30 +285,31 @@ const EmployeeLeaves = () => {
 
   const handleApply = async (e) => {
     e.preventDefault();
-    if (calculatedDays <= 0) return alert("Please select valid working days (Weekends & Holidays are excluded).");
+    if (calculatedDays <= 0) return toast.error("Please select valid working days (Weekends & Holidays are excluded).");
 
-    // Check Balance Before Submit
     const userId = admin?._id || admin?.id;
-    if (!userId) return alert("Session lost. Please log in again.");
+    if (!userId) return toast.error("Session lost. Please log in again.");
 
     const available = balance[formData.leaveType]?.remaining || 0;
     if (calculatedDays > available) {
-      return alert(`Insufficient ${formData.leaveType} balance. Requested: ${calculatedDays}, Available: ${available}`);
+      return; // Handled by inline validation
     }
 
     setSubmitLoading(true);
     try {
-      await axios.post(`http://localhost:5000/api/leavemanagement/apply/${userId}`, {
-        ...formData,
-        // Backend recalculates anyway, but good to send what user saw
-        totalDays: calculatedDays,
+      await axios.post(`http://localhost:5000/api/leavemanagement/`, {
+        employeeId: userId,
+        leaveType: formData.leaveType,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        employeeComment: formData.reason,
       });
-      alert("Leave Request Submitted!");
-      setFormData({ leaveType: "Casual", startDate: "", endDate: "", reason: "" });
+      toast.success("Leave request submitted successfully.");
+      setFormData({ leaveType: Object.keys(balance)[0] || "Casual", startDate: "", endDate: "", reason: "" });
       setActiveTab("history");
       fetchData();
     } catch (error) {
-      alert(error.response?.data?.message || "Failed.");
+      toast.error(error.response?.data?.message || "Failed to submit request.");
     } finally {
       setSubmitLoading(false);
     }
@@ -323,11 +357,11 @@ const EmployeeLeaves = () => {
                 }`} />
 
               <div className="flex justify-between items-start mb-4">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${key === 'Casual' ? 'bg-blue-50 text-blue-600' :
-                  key === 'Sick' ? 'bg-red-50 text-red-600' :
-                    key === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${key === 'CASUAL' ? 'bg-blue-50 text-blue-600' :
+                  key === 'SICK' ? 'bg-red-50 text-red-600' :
+                    key === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
                   }`}>
-                  {key}
+                  {key.replace('_', ' ')}
                 </span>
                 <Briefcase size={14} className="text-gray-300" />
               </div>
@@ -405,10 +439,14 @@ const EmployeeLeaves = () => {
                     <input
                       type="date"
                       required
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
+                      className={`w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 ${formData.endDate && formData.startDate && new Date(formData.endDate) < new Date(formData.startDate) ? "border-red-500 bg-red-50" : ""
+                        }`}
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     />
+                    {formData.endDate && formData.startDate && new Date(formData.endDate) < new Date(formData.startDate) && (
+                      <p className="text-[10px] text-red-500 font-bold uppercase mt-1">End date cannot be before start date</p>
+                    )}
                   </div>
                 </div>
 
@@ -456,7 +494,7 @@ const EmployeeLeaves = () => {
           {activeTab === "history" && (
             <div className="space-y-4">
               {history.map(item => (
-                <div key={item.leaveId} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div key={item._id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${item.status === 'Approved' ? "bg-green-100 text-green-700" :
@@ -554,20 +592,69 @@ const EmployeeLeaves = () => {
 
                 {/* Quick Apply Action */}
                 {!dateDetail.personal && !isWeekend(dateDetail.date) && (!dateDetail.holiday || dateDetail.holiday.isOptional) && (
-                  <button
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        startDate: format(dateDetail.date, "yyyy-MM-dd"),
-                        endDate: format(dateDetail.date, "yyyy-MM-dd"),
-                      });
-                      setActiveTab("apply");
-                      setDateDetail({ ...dateDetail, show: false });
-                    }}
-                    className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black shadow-xl shadow-gray-200 hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2 group"
-                  >
-                    Quick Apply for this Day <PlusCircle size={18} className="group-hover:rotate-90 transition-transform" />
-                  </button>
+                  <div className="pt-4 border-t border-gray-100 space-y-4">
+                    <div className="bg-indigo-50/50 p-6 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <PlusCircle size={18} className="text-indigo-600" />
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Quick Apply</h4>
+                      </div>
+
+                      <div className="space-y-3">
+                        <select
+                          className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                          value={formData.leaveType}
+                          onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
+                        >
+                          <option value="">Select Leave Type</option>
+                          {policy?.leaveTypes.map(t => (
+                            <option key={t.leaveType} value={t.leaveType}>{t.leaveType} ({leaveBalances[t.leaveType] || 0} left)</option>
+                          ))}
+                        </select>
+
+                        <textarea
+                          className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100 h-20 resize-none"
+                          placeholder="Why are you taking leave?"
+                          value={formData.employeeComment}
+                          onChange={(e) => setFormData({ ...formData, employeeComment: e.target.value })}
+                        />
+
+                        {(!formData.leaveType || (leaveBalances[formData.leaveType] < 1)) && (
+                          <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
+                            <AlertCircle size={14} />
+                            {!formData.leaveType ? "Select a leave type to continue" : "Insufficient balance"}
+                          </div>
+                        )}
+
+                        <button
+                          disabled={!formData.leaveType || leaveBalances[formData.leaveType] < 1 || loading}
+                          onClick={async () => {
+                            try {
+                              setLoading(true);
+                              const payload = {
+                                employeeId: user._id,
+                                leaveType: formData.leaveType,
+                                startDate: format(dateDetail.date, "yyyy-MM-dd"),
+                                endDate: format(dateDetail.date, "yyyy-MM-dd"),
+                                employeeComment: formData.employeeComment
+                              };
+                              await axios.post("http://localhost:5000/api/leavemanagement/", payload);
+                              toast.success("Leave applied successfully!");
+                              setDateDetail({ ...dateDetail, show: false });
+                              fetchHistory();
+                              setActiveTab("history");
+                            } catch (e) {
+                              toast.error(e.response?.data?.message || "Failed to apply");
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0"
+                        >
+                          {loading ? "Processing..." : "Submit Application"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

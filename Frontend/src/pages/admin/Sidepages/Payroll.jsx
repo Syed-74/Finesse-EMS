@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../../api/axios"; // Using centralized instance
 import {
   Plus, Search, Filter, MoreVertical, Download,
   Trash2, Edit, CheckCircle, Clock, CreditCard,
@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 
-const API_BASE_URL = "http://localhost:5000/api";
+// Removed local API_BASE_URL as it's set in the axios instance baseURL
 
 const Payroll = () => {
   const [payrolls, setPayrolls] = useState([]);
@@ -42,8 +42,8 @@ const Payroll = () => {
     try {
       setLoading(true);
       const [payrollRes, employeeRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/payroll`, { withCredentials: true }),
-        axios.get(`${API_BASE_URL}/employees`, { withCredentials: true })
+        axios.get("/payroll"),
+        axios.get("/employees")
       ]);
 
       const filteredPayrolls = payrollRes.data.filter(p =>
@@ -83,13 +83,13 @@ const Payroll = () => {
       if (action === "pay") endpoint = `/payroll/pay/${id}`;
       if (action === "delete") {
         if (!window.confirm("Are you sure you want to delete this payroll?")) return;
-        await axios.delete(`${API_BASE_URL}/payroll/${id}`, { withCredentials: true });
+        await axios.delete(`/payroll/${id}`);
         toast.success("Payroll deleted successfully");
         fetchData();
         return;
       }
 
-      await axios.put(`${API_BASE_URL}${endpoint}`, {}, { withCredentials: true });
+      await axios.put(endpoint, {});
       toast.success(`Payroll ${action}d successfully`);
       fetchData();
     } catch (error) {
@@ -99,8 +99,7 @@ const Payroll = () => {
 
   const handleDownload = async (id, month, year) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/payroll/payslip/${id}`, {
-        withCredentials: true,
+      const response = await axios.get(`/payroll/payslip/${id}`, {
         responseType: 'blob'
       });
 
@@ -367,19 +366,20 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
     unpaidLeaves: data?.unpaidLeaves || 0,
     totalWorkingDays: data?.totalWorkingDays || 30,
   });
+  console.log(formData);
 
   const [preview, setPreview] = useState(null);
   const [fetchingLeaves, setFetchingLeaves] = useState(false);
 
   useEffect(() => {
     const fetchUnpaidLeaves = async () => {
+      // Corrected API endpoint to match the backend
       if (!formData.employeeId || !formData.month || !formData.year || isEdit) return;
 
       setFetchingLeaves(true);
       try {
         const res = await axios.get(
-          `${API_BASE_URL}/leavemanagement/unpaid-summary/${formData.employeeId}?month=${formData.month}&year=${formData.year}`,
-          { withCredentials: true }
+          `/leavemanagement/unpaid-summary/${formData.employeeId}?month=${formData.month}&year=${formData.year}`
         );
         setFormData((prev) => ({
           ...prev,
@@ -445,10 +445,10 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
     setLoading(true);
     try {
       if (isEdit) {
-        await axios.put(`${API_BASE_URL}/payroll/${data._id}`, formData, { withCredentials: true });
+        await axios.put(`/payroll/${data._id}`, formData);
         toast.success("Payroll updated successfully");
       } else {
-        await axios.post(`${API_BASE_URL}/payroll/generate`, formData, { withCredentials: true });
+        await axios.post(`/payroll/generate`, formData);
         toast.success("Payroll generated as Draft");
       }
       refresh();

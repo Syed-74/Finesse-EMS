@@ -65,7 +65,7 @@ const Login = () => {
       // Use redirect with proper configuration
       await instance.loginRedirect({
         ...loginRequest,
-        redirectUri: "http://localhost:5173",
+        redirectUri: "http://localhost:3000",
         prompt: "select_account",
         extraScopesToConsent: ["User.Read"],
       });

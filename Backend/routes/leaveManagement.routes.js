@@ -1,41 +1,44 @@
 import express from "express";
 import {
-  createLeaveProfile,
-  applyLeave,
-  getEmployeeLeaves,
-  updateLeaveStatus,
-  addHoliday,
-  updateLeavePolicy,
-  getLeaveSettings,
-  getAllLeaveRequests,
-  getCalendarView,
-  getLeaveStats,
-  updateHoliday,
-  deleteHoliday,
-  getUnpaidLeaveSummary
+   upsertLeaveSettings,
+   getLeaveSettings,
+   applyLeave,
+   getAllLeaves,
+   getEmployeeLeaves,
+   updateLeaveStatus,
+   getUnpaidLeaveSummary,
 } from "../controllers/leaveManagement.controllers.js";
-
-import { protectAll } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// Initialize profile (Admin)
-router.post("/profile", protectAll, createLeaveProfile);
+/* =====================================================
+   GLOBAL LEAVE SETTINGS (ADMIN)
+===================================================== */
 
-// Employee
-router.post("/apply/:employeeId", protectAll, applyLeave);
-router.get("/employee/:employeeId", protectAll, getEmployeeLeaves);
-router.get("/unpaid-summary/:employeeId", protectAll, getUnpaidLeaveSummary);
-router.get("/calendar", getCalendarView);
+// Create or Update Global Leave Policy
+router.post("/settings", upsertLeaveSettings);
 
-// Admin
-router.get("/stats", protectAll, getLeaveStats);
-router.get("/settings", protectAll, getLeaveSettings);
-router.get("/all-requests", protectAll, getAllLeaveRequests);
-router.put("/status/:employeeId/:leaveId", protectAll, updateLeaveStatus);
-router.post("/holiday", protectAll, addHoliday);
-router.put("/holiday/:holidayId", protectAll, updateHoliday);
-router.delete("/holiday/:holidayId", protectAll, deleteHoliday);
-router.put("/policy", protectAll, updateLeavePolicy);
+// Get Active Leave Policy
+router.get("/settings", getLeaveSettings);
+
+
+/* =====================================================
+   LEAVE REQUESTS
+===================================================== */
+
+// Apply Leave (Employee)
+router.post("/", applyLeave);
+
+// Get All Leave Requests (Admin)
+router.get("/", getAllLeaves);
+
+// Get Leave Requests By Employee
+router.get("/employee/:employeeId", getEmployeeLeaves);
+
+// Update Leave Status (Approve / Reject)
+router.patch("/:id/status", updateLeaveStatus);
+
+// Get Unpaid Leave Summary (Admin/Payroll)
+router.get("/unpaid-summary/:employeeId", getUnpaidLeaveSummary);
 
 export default router;

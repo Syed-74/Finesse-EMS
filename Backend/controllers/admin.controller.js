@@ -183,10 +183,11 @@ export const ssoLogin = async (req, res) => {
     // Fallback graphData if MS Graph fails or no token
     if (!graphData) {
       const nameParts = (name || email.split('@')[0]).split(' ');
+
       graphData = {
         email,
-        firstName: nameParts[0] || "User",
-        lastName: nameParts.slice(1).join(' ') || '.',
+        firstName: nameParts[0] || "User" || "Employee",
+        lastName: nameParts.slice(1).join(' ') || ".",
         microsoftId: null,
       };
     }
