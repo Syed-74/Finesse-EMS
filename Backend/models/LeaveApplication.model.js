@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-const LeaveManagementSchema = new mongoose.Schema(
+const LeaveApplicationSchema = new mongoose.Schema(
   {
     /* =========================
-       EMPLOYEE REFERENCE
+       EMPLOYEE
     ========================== */
 
     employeeId: {
@@ -11,19 +11,21 @@ const LeaveManagementSchema = new mongoose.Schema(
       ref: "Employee",
       required: true,
     },
-    leaveSettingId: {
+
+    leavePolicyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "LeaveSettings",
+      ref: "LeavePolicy",
       required: true,
     },
+
     /* =========================
        LEAVE DETAILS
     ========================== */
 
     leaveType: {
       type: String,
-      enum: ["CASUAL", "SICK", "PAID", "UNPAID"],
       required: true,
+      trim: true,
     },
 
     startDate: {
@@ -39,16 +41,19 @@ const LeaveManagementSchema = new mongoose.Schema(
     totalDays: {
       type: Number,
       required: true,
+      min: 1,
     },
 
     employeeComment: {
       type: String,
       default: "",
+      trim: true,
     },
 
     adminComment: {
       type: String,
       default: "",
+      trim: true,
     },
 
     /* =========================
@@ -57,15 +62,24 @@ const LeaveManagementSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
+      enum: ["Pending", "Approved", "Rejected", "Cancelled"],
       default: "Pending",
     },
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    approvedAt: {
+      type: Date,
+    },
   },
-  { timestamps: true } // adds createdAt & updatedAt automatically
+  { timestamps: true }
 );
 
-const LeaveManagement =
-  mongoose.models.LeaveManagement ||
-  mongoose.model("LeaveManagement", LeaveManagementSchema);
+const LeaveApplication =
+  mongoose.models.LeaveApplication ||
+  mongoose.model("LeaveApplication", LeaveApplicationSchema);
 
-export default LeaveManagement;
+export default LeaveApplication;

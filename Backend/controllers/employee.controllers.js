@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
-import Employee from "../models/employee.model.js";
-import LeaveManagement from "../models/leaveManagement.model.js";
+import Employee from "../models/Employee.model.js";
+import LeaveManagement from "../models/LeaveApplication.model.js";
 import Admin from "../models/admin.model.js";
 
 /* =========================

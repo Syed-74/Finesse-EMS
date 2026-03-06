@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import Admin from "../models/admin.model.js";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 import { generateEmployeeId } from "./employee.controllers.js";
 import microsoftGraphService from "../services/microsoftGraph.service.js";
 import authService from "../services/auth.service.js";

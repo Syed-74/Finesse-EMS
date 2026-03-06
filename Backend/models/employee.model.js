@@ -5,12 +5,12 @@ const employeeSchema = new mongoose.Schema(
     /* =========================
        🆔 BASIC IDENTIFICATION
     ========================= */
-    // employeeId: {
-    //   type: String,
-    //   required: true,
-    //   unique: true,
-    //   trim: true,
-    // },
+    employeeId: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
 
     firstName: {
       type: String,

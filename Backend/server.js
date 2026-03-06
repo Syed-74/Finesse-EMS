@@ -7,7 +7,8 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/admin.routes.js";
 import employeeRoutes from "./routes/employee.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
-import leaveManagementModel from "./routes/leaveManagement.routes.js";
+import leaveApplicationRoutes from "./routes/leaveApplication.routes.js";
+import leavePolicyRoutes from "./routes/leavePolicy.routes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import reportRoutes from "./routes/report.routes.js";
 
@@ -30,7 +31,8 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
-app.use("/api/leavemanagement", leaveManagementModel);
+app.use("/api/leaveapplication", leaveApplicationRoutes);
+app.use("/api/leavepolicy", leavePolicyRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/reports", reportRoutes);
 

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 
 class EmployeeService {
     /**
