@@ -30,7 +30,7 @@ const HolidayManagement = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/leavemanagement/settings");
+            const res = await axios.get("http://localhost:5000/api/leavepolicy/current");
             setSettings(res.data.data);
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -48,7 +48,7 @@ const HolidayManagement = () => {
 
         try {
             setSaving(true);
-            await axios.post("http://localhost:5000/api/leavemanagement/settings", updatedSettings);
+            await axios.put(`http://localhost:5000/api/leavepolicy/${settings._id}`, updatedSettings);
             setSettings(updatedSettings);
             setNewHoliday({ holidayName: "", holidayDate: "", holidayType: "Public", isOptional: false });
             toast.success("Holiday added successfully!");
@@ -74,7 +74,7 @@ const HolidayManagement = () => {
 
         try {
             setSaving(true);
-            await axios.post("http://localhost:5000/api/leavemanagement/settings", updatedSettings);
+            await axios.put(`http://localhost:5000/api/leavepolicy/${settings._id}`, updatedSettings);
             setSettings(updatedSettings);
             setConfirmModal({ ...confirmModal, show: false });
             toast.success("Holiday deleted successfully!");

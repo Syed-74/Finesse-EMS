@@ -51,6 +51,13 @@ const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) 
     return { holiday, personal, teams };
   };
 
+  const getCalendarColor = (status, type) => {
+    if (status === 'Holiday') return 'bg-red-500';
+    if (status === 'Approved') return 'bg-blue-500';
+    if (status === 'Pending') return 'bg-amber-500';
+    return 'bg-indigo-500';
+  };
+
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
       <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-br from-indigo-50/30 to-white">
@@ -95,16 +102,6 @@ const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) 
                     }`}>
                     {format(day, "d")}
                   </span>
-                  {teams.length > 0 && !personal && (
-                    <div className="flex -space-x-2">
-                      {teams.slice(0, 3).map((t, idx) => (
-                        <div key={idx} className="w-5 h-5 rounded-full border-2 border-white bg-indigo-100 flex items-center justify-center text-[8px] font-black text-indigo-600" title={t.employeeName}>
-                          {t.employeeName[0]}
-                        </div>
-                      ))}
-                      {teams.length > 3 && <div className="w-5 h-5 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[8px] font-black text-gray-600">+{teams.length - 3}</div>}
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-1 overflow-y-auto max-h-[65%] custom-scrollbar">
@@ -114,9 +111,9 @@ const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) 
                     </div>
                   )}
                   {personal && (
-                    <div className={`text-[9px] font-black uppercase tracking-tight px-2 py-1 rounded-lg border truncate flex items-center gap-1 ${personal.status === 'Approved' ? "bg-green-50 text-green-700 border-green-100" : "bg-amber-50 text-amber-700 border-amber-100"
+                    <div className={`text-[9px] font-black uppercase tracking-tight px-2 py-1 rounded-lg border truncate flex items-center gap-1 ${personal.status === 'Approved' ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-amber-50 text-amber-700 border-amber-100"
                       }`}>
-                      <div className={`w-1 h-1 rounded-full ${personal.status === 'Approved' ? "bg-green-500" : "bg-amber-500"}`} /> {personal.leaveType}
+                      <div className={`w-1 h-1 rounded-full ${personal.status === 'Approved' ? "bg-blue-500" : "bg-amber-500"}`} /> {personal.leaveType}
                     </div>
                   )}
                   {teams.length > 0 && !personal && (
@@ -125,34 +122,9 @@ const AdvancedSmartCalendar = ({ holidays, myLeaves, teamLeaves, onDateClick }) 
                     </div>
                   )}
                 </div>
-
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="p-1.5 bg-gray-900 text-white rounded-lg shadow-lg">
-                    <PlusCircle size={12} />
-                  </div>
-                </div>
               </div>
             )
           })}
-        </div>
-
-        <div className="mt-8 flex flex-wrap gap-6 text-xs font-bold text-gray-500 p-6 bg-gray-50 rounded-3xl border border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-50 border border-red-100 rounded-lg"></div>
-            <span>Holiday</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-50 border border-green-100 rounded-lg"></div>
-            <span>Approved</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-amber-50 border border-amber-100 rounded-lg"></div>
-            <span>Pending</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-indigo-50 border border-indigo-100 rounded-lg"></div>
-            <span>Team Away</span>
-          </div>
         </div>
       </div>
     </div>
@@ -173,7 +145,7 @@ const EmployeeLeaves = () => {
 
   // Form
   const [formData, setFormData] = useState({
-    leaveType: "CASUAL",
+    leaveType: "",
     startDate: "",
     endDate: "",
     reason: "",
@@ -192,18 +164,20 @@ const EmployeeLeaves = () => {
     try {
       setLoading(true);
 
-      const [leaveRes, settingsRes, allLeavesRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/leavemanagement/employee/${userId}`),
-        axios.get(`http://localhost:5000/api/leavemanagement/settings`),
-        axios.get(`http://localhost:5000/api/leavemanagement/`)
+      const [leaveRes, policyRes, allLeavesRes, balanceRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/leaveapplication/employee/${userId}`),
+        axios.get(`http://localhost:5000/api/leavepolicy/current`),
+        axios.get(`http://localhost:5000/api/leaveapplication`),
+        axios.get(`http://localhost:5000/api/leavebalance/employee/${userId}`)
       ]);
 
       const myLeaves = leaveRes.data.data || [];
-      const settings = settingsRes.data.data;
+      const policy = policyRes.data.data;
       const allLeaves = allLeavesRes.data.data || [];
+      const balances = balanceRes.data || [];
 
       setHistory(myLeaves);
-      setHolidays(settings?.holidays || []);
+      setHolidays(policy?.holidays || []);
 
       // Team Leaves = All approved leaves except mine
       const team = allLeaves.filter(
@@ -213,30 +187,34 @@ const EmployeeLeaves = () => {
         ...l,
         start: l.startDate,
         end: l.endDate,
-        employeeName: l.employeeId?.name || "Employee"
+        employeeName: (l.employeeId?.firstName && l.employeeId?.lastName)
+          ? `${l.employeeId.firstName} ${l.employeeId.lastName}`
+          : (l.employeeId?.name || "Employee")
       })));
 
-      // Build balance dynamically from policy
+      // Map balance data from backend
       const balanceData = {};
-      if (settings?.leaveTypes) {
-        settings.leaveTypes.forEach(policy => {
-          const used = myLeaves
-            .filter(l => l.leaveType === policy.leaveType && l.status === "Approved")
-            .reduce((sum, l) => sum + l.totalDays, 0);
 
-          let allocated = 0;
-          if (policy.allocationType === "YEARLY") {
-            allocated = policy.totalPerYear;
-          } else {
-            const currentMonth = new Date().getMonth() + 1;
-            allocated = policy.monthlyAccrual * currentMonth;
-          }
+      // 1. Initialize from Policy (Ensures all admin-defined categories exist)
+      if (policy?.leaveTypes) {
+        policy.leaveTypes.forEach(pt => {
+          balanceData[pt.leaveType] = {
+            total: pt.totalPerYear,
+            used: 0,
+            remaining: pt.totalPerYear,
+            max: pt.totalPerYear
+          };
+        });
+      }
 
-          balanceData[policy.leaveType] = {
-            total: allocated,
-            used,
-            remaining: allocated - used,
-            max: policy.totalPerYear
+      // 2. Overwrite/Augment with actual employee balances
+      if (Array.isArray(balances)) {
+        balances.forEach(b => {
+          balanceData[b.leaveType] = {
+            total: b.totalAllocated,
+            used: b.usedLeaves,
+            remaining: b.remainingLeaves,
+            max: b.totalAllocated
           };
         });
       }
@@ -244,8 +222,8 @@ const EmployeeLeaves = () => {
       setBalance(balanceData);
 
       // Set default leave type if not set
-      if (settings?.leaveTypes?.length > 0 && !formData.leaveType) {
-        setFormData(prev => ({ ...prev, leaveType: settings.leaveTypes[0].leaveType }));
+      if (Object.keys(balanceData).length > 0 && !formData.leaveType) {
+        setFormData(prev => ({ ...prev, leaveType: Object.keys(balanceData)[0] }));
       }
 
     } catch (error) {
@@ -292,12 +270,13 @@ const EmployeeLeaves = () => {
 
     const available = balance[formData.leaveType]?.remaining || 0;
     if (calculatedDays > available) {
-      return; // Handled by inline validation
+      toast.error("Insufficient leave balance.");
+      return;
     }
 
     setSubmitLoading(true);
     try {
-      await axios.post(`http://localhost:5000/api/leavemanagement/`, {
+      await axios.post(`http://localhost:5000/api/leaveapplication`, {
         employeeId: userId,
         leaveType: formData.leaveType,
         startDate: formData.startDate,
@@ -305,7 +284,7 @@ const EmployeeLeaves = () => {
         employeeComment: formData.reason,
       });
       toast.success("Leave request submitted successfully.");
-      setFormData({ leaveType: Object.keys(balance)[0] || "Casual", startDate: "", endDate: "", reason: "" });
+      setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "" });
       setActiveTab("history");
       fetchData();
     } catch (error) {
@@ -350,46 +329,65 @@ const EmployeeLeaves = () => {
 
         {/* Balance Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {Object.entries(balance).map(([key, data]) => (
-            <div key={key} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all duration-300">
-              {/* Decorative BG */}
-              <div className={`absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8 rounded-full opacity-10 transition group-hover:scale-110 ${key === 'Casual' ? 'bg-blue-500' : key === 'Sick' ? 'bg-red-500' : key === 'Paid' ? 'bg-green-500' : 'bg-amber-500'
-                }`} />
+          {Object.entries(balance).map(([key, data]) => {
+            const getColor = (name) => {
+              const n = name.toLowerCase();
+              if (n.includes("sick")) return "rose";
+              if (n.includes("casual")) return "indigo";
+              if (n.includes("paid") || n.includes("earned")) return "emerald";
+              if (n.includes("emergency")) return "amber";
+              return "slate";
+            };
+            const color = getColor(key);
+            const colorClasses = {
+              rose: "bg-rose-50 text-rose-600",
+              indigo: "bg-indigo-50 text-indigo-600",
+              emerald: "bg-emerald-50 text-emerald-600",
+              amber: "bg-amber-50 text-amber-600",
+              slate: "bg-slate-50 text-slate-600"
+            }[color];
+            const bgClasses = {
+              rose: "bg-rose-500",
+              indigo: "bg-indigo-500",
+              emerald: "bg-emerald-500",
+              amber: "bg-amber-500",
+              slate: "bg-slate-500"
+            }[color];
 
-              <div className="flex justify-between items-start mb-4">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${key === 'CASUAL' ? 'bg-blue-50 text-blue-600' :
-                  key === 'SICK' ? 'bg-red-50 text-red-600' :
-                    key === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                  }`}>
-                  {key.replace('_', ' ')}
-                </span>
-                <Briefcase size={14} className="text-gray-300" />
-              </div>
+            return (
+              <div key={key} className="bg-white p-6 rounded-[2rem] shadow-xl shadow-gray-100/50 border border-gray-100 relative overflow-hidden group hover:shadow-2xl hover:-translate-y-1 transition-all duration-500">
+                {/* Decorative BG */}
+                <div className={`absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8 rounded-full opacity-10 transition-transform duration-700 group-hover:scale-150 ${bgClasses}`} />
 
-              <div className="flex items-baseline gap-1 mb-4">
-                <h2 className={`text-4xl font-bold ${data.remaining <= 0 ? 'text-red-500' : 'text-gray-800'}`}>
-                  {data.remaining}
-                </h2>
-                <span className="text-xs text-gray-400 font-medium">days left</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 border-t border-gray-50 pt-3 mt-auto">
-                <div>
-                  <p className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Accrued / Year</p>
-                  <p className="text-sm font-bold text-gray-700">{data.total} <span className="text-gray-400 text-xs">/ {data.max}</span></p>
-                  {data.total !== data.max && (
-                    <div className="mt-1 h-1 bg-gray-100 rounded-full overflow-hidden w-full">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(data.total / (data.max || 1)) * 100}%` }} />
-                    </div>
-                  )}
+                <div className="flex justify-between items-start mb-6">
+                  <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${colorClasses}`}>
+                    {key.replace(/_/g, ' ')}
+                  </span>
+                  <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
+                    <Briefcase size={16} />
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">Used</p>
-                  <p className="text-sm font-bold text-gray-700">{data.used}</p>
+
+                <div className="flex items-baseline gap-2 mb-6">
+                  <h2 className={`text-5xl font-black tracking-tighter ${data.remaining <= 0 ? 'text-rose-500' : 'text-gray-900'}`}>
+                    {data.remaining}
+                  </h2>
+                  <span className="text-xs text-gray-400 font-black uppercase tracking-widest italic">days left</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-gray-50 pt-5 mt-auto">
+                  <div>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-2">Yearly Grant</p>
+                    <p className="text-sm font-black text-gray-900">{data.total} <span className="text-gray-300 text-[10px]">FIXED</span></p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-2">Consumed</p>
+                    <p className="text-sm font-black text-gray-900">{data.used}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Content Area */}
@@ -452,7 +450,7 @@ const EmployeeLeaves = () => {
 
                 {/* Smart Duration Display */}
                 <div className={`p-4 rounded-xl flex items-center justify-between transition-all duration-300 ${calculatedDays > 0
-                  ? (calculatedDays > (balance[formData.leaveType]?.remaining || 0) ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800")
+                  ? (formData.leaveType && calculatedDays > (balance[formData.leaveType]?.remaining || 0) ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800")
                   : "bg-gray-50 text-gray-400"
                   }`}>
                   <div className="flex items-center gap-3">
@@ -462,10 +460,15 @@ const EmployeeLeaves = () => {
                       <p className="font-bold text-lg">{calculatedDays > 0 ? `${calculatedDays} Working Days` : "Select valid dates"}</p>
                     </div>
                   </div>
-                  {calculatedDays > (balance[formData.leaveType]?.remaining || 0) && (
+                  {formData.leaveType && calculatedDays > 0 && calculatedDays > (balance[formData.leaveType]?.remaining || 0) && (
                     <div className="text-xs font-bold text-red-500 uppercase flex flex-col items-end">
                       <span>Insufficient Balance</span>
                       <span className="opacity-70">Available: {balance[formData.leaveType]?.remaining}</span>
+                    </div>
+                  )}
+                  {calculatedDays > 0 && !formData.leaveType && (
+                    <div className="text-[10px] font-black uppercase text-blue-500 tracking-tighter animate-pulse">
+                      Select Leave Category
                     </div>
                   )}
                 </div>
@@ -606,19 +609,19 @@ const EmployeeLeaves = () => {
                           onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
                         >
                           <option value="">Select Leave Type</option>
-                          {policy?.leaveTypes.map(t => (
-                            <option key={t.leaveType} value={t.leaveType}>{t.leaveType} ({leaveBalances[t.leaveType] || 0} left)</option>
+                          {Object.keys(balance).map(type => (
+                            <option key={type} value={type}>{type} ({balance[type]?.remaining || 0} left)</option>
                           ))}
                         </select>
 
                         <textarea
                           className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100 h-20 resize-none"
                           placeholder="Why are you taking leave?"
-                          value={formData.employeeComment}
-                          onChange={(e) => setFormData({ ...formData, employeeComment: e.target.value })}
+                          value={formData.reason}
+                          onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                         />
 
-                        {(!formData.leaveType || (leaveBalances[formData.leaveType] < 1)) && (
+                        {(!formData.leaveType || (balance[formData.leaveType]?.remaining < 1)) && (
                           <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
                             <AlertCircle size={14} />
                             {!formData.leaveType ? "Select a leave type to continue" : "Insufficient balance"}
@@ -626,31 +629,32 @@ const EmployeeLeaves = () => {
                         )}
 
                         <button
-                          disabled={!formData.leaveType || leaveBalances[formData.leaveType] < 1 || loading}
+                          disabled={!formData.leaveType || balance[formData.leaveType]?.remaining < 1 || submitLoading}
                           onClick={async () => {
                             try {
-                              setLoading(true);
+                              setSubmitLoading(true);
+                              const uId = admin?._id || admin?.id;
                               const payload = {
-                                employeeId: user._id,
+                                employeeId: uId,
                                 leaveType: formData.leaveType,
                                 startDate: format(dateDetail.date, "yyyy-MM-dd"),
                                 endDate: format(dateDetail.date, "yyyy-MM-dd"),
-                                employeeComment: formData.employeeComment
+                                employeeComment: formData.reason
                               };
-                              await axios.post("http://localhost:5000/api/leavemanagement/", payload);
+                              await axios.post("http://localhost:5000/api/leaveapplication", payload);
                               toast.success("Leave applied successfully!");
                               setDateDetail({ ...dateDetail, show: false });
-                              fetchHistory();
+                              fetchData();
                               setActiveTab("history");
                             } catch (e) {
                               toast.error(e.response?.data?.message || "Failed to apply");
                             } finally {
-                              setLoading(false);
+                              setSubmitLoading(false);
                             }
                           }}
                           className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0"
                         >
-                          {loading ? "Processing..." : "Submit Application"}
+                          {submitLoading ? "Processing..." : "Submit Application"}
                         </button>
                       </div>
                     </div>

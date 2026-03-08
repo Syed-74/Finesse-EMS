@@ -13,8 +13,8 @@ const LeaveTypeSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      enum: ["PAID", "UNPAID"],
       required: true,
+      uppercase: true, // Standardize to uppercase
     },
 
     totalPerYear: {

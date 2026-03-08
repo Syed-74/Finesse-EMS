@@ -162,15 +162,15 @@ const Login = () => {
 
         console.log("User after Adminfetch:", user);
 
-        if (user.role === "employee") {
+        if (user && user.role === "employee") {
           console.log("Navigating to employee dashboard...");
           navigate("/employee", { replace: true });
-        } else if (user.role === "admin") {
+        } else if (user && user.role === "admin") {
           console.log("Navigating to admin dashboard...");
           navigate("/admin", { replace: true });
         } else {
           console.error("SSO login succeeded but Adminfetch couldn't load profile");
-          setError("Login successful but failed to load user profile");
+          setError("Login successful but failed to load user profile. Check backend connection.");
         }
       } else {
         console.error("No token received from backend");

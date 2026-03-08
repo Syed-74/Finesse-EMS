@@ -11,7 +11,7 @@ import {
   syncAllUsers,
 } from "../controllers/admin.controller.js";
 
-import { protectAdmin } from "../middleware/adminAuth.middleware.js";
+import { protectAdmin, protectUser } from "../middleware/adminAuth.middleware.js";
 import upload from "../middleware/upload.middleware.js";
 
 const router = express.Router();
@@ -21,7 +21,7 @@ router.post("/login", loginAdmin);
 router.post("/sso-login", ssoLogin); // Microsoft SSO login
 router.post("/logout", logoutAdmin);
 
-router.get("/profile", protectAdmin, getAdminProfile);
+router.get("/profile", protectUser, getAdminProfile);
 router.put("/profile", protectAdmin, upload.single("profileImage"), updateAdminProfile);
 router.put("/change-password", protectAdmin, changePassword);
 router.put("/preferences", protectAdmin, updateAdminPreferences);

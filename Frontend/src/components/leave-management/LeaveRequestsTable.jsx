@@ -28,7 +28,7 @@ const LeaveRequestsTable = () => {
     const fetchRequests = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/leavemanagement/");
+            const res = await axios.get("http://localhost:5000/api/leaveapplication");
             setRequests(res.data.data || []);
         } catch (error) {
             console.error("Error fetching requests:", error);
@@ -59,7 +59,7 @@ const LeaveRequestsTable = () => {
 
         try {
             setActionLoading(requestId);
-            await axios.patch(`http://localhost:5000/api/leavemanagement/${requestId}/status`, {
+            await axios.put(`http://localhost:5000/api/leaveapplication/${requestId}/status`, {
                 status,
                 adminComment: comment
             });
