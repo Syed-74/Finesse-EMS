@@ -149,6 +149,7 @@ const EmployeeLeaves = () => {
     startDate: "",
     endDate: "",
     reason: "",
+    attachment: null,
   });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [calculatedDays, setCalculatedDays] = useState(0);
@@ -274,17 +275,27 @@ const EmployeeLeaves = () => {
       return;
     }
 
+    // Feature Requirement: Sick Leave → Attachment is required.
+    if (formData.leaveType === "Sick Leave" && !formData.attachment) {
+      toast.error("Attachment is required for Sick Leave.");
+      return;
+    }
+
     setSubmitLoading(true);
     try {
-      await axios.post(`http://localhost:5000/api/leaveapplication`, {
-        employeeId: userId,
-        leaveType: formData.leaveType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        employeeComment: formData.reason,
-      });
+      const submitData = new FormData();
+      submitData.append("employeeId", userId);
+      submitData.append("leaveType", formData.leaveType);
+      submitData.append("startDate", formData.startDate);
+      submitData.append("endDate", formData.endDate);
+      submitData.append("employeeComment", formData.reason);
+      if (formData.attachment) {
+        submitData.append("attachment", formData.attachment);
+      }
+
+      await axios.post(`http://localhost:5000/api/leaveapplication`, submitData);
       toast.success("Leave request submitted successfully.");
-      setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "" });
+      setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "", attachment: null });
       setActiveTab("history");
       fetchData();
     } catch (error) {
@@ -484,6 +495,25 @@ const EmployeeLeaves = () => {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 font-bold uppercase text-[10px] tracking-wider">
+                    Attachment {formData.leaveType === "Sick Leave" ? <span className="text-red-500">*</span> : "(Optional)"}
+                  </label>
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setFormData({ ...formData, attachment: e.target.files[0] })}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition duration-300"
+                    />
+                    {formData.leaveType === "Sick Leave" && !formData.attachment && (
+                      <p className="text-[10px] text-amber-600 font-bold uppercase mt-1 flex items-center gap-1">
+                        <AlertCircle size={10} /> Attachment is required for Sick Leave
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <button
                   disabled={submitLoading || calculatedDays <= 0}
                   className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold shadow-lg shadow-gray-200 hover:shadow-xl hover:-translate-y-0.5 transition disabled:opacity-50 disabled:hover:translate-y-0"
@@ -513,6 +543,18 @@ const EmployeeLeaves = () => {
                       <span className="w-1 h-1 bg-gray-300 rounded-full" />
                       {item.totalDays} Days
                     </div>
+                    {item.attachment && (
+                      <div className="mt-2">
+                        <a
+                          href={`http://localhost:5000/uploads/${item.attachment}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg w-fit"
+                        >
+                          <Briefcase size={12} /> View Attachment
+                        </a>
+                      </div>
+                    )}
                   </div>
                   {item.adminComment && (
                     <div className="mt-3 md:mt-0 md:text-right bg-gray-50 p-3 rounded-lg max-w-sm">
@@ -621,6 +663,23 @@ const EmployeeLeaves = () => {
                           onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                         />
 
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                            Attachment {formData.leaveType === "Sick Leave" ? <span className="text-red-500">*</span> : "(Optional)"}
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => setFormData({ ...formData, attachment: e.target.files[0] })}
+                            className="w-full px-4 py-2 bg-white rounded-xl border border-indigo-100 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition duration-300"
+                          />
+                          {formData.leaveType === "Sick Leave" && !formData.attachment && (
+                            <p className="text-[9px] text-amber-600 font-bold uppercase mt-1 flex items-center gap-1">
+                              <AlertCircle size={10} /> Attachment is required for Sick Leave
+                            </p>
+                          )}
+                        </div>
+
                         {(!formData.leaveType || (balance[formData.leaveType]?.remaining < 1)) && (
                           <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
                             <AlertCircle size={14} />
@@ -631,17 +690,23 @@ const EmployeeLeaves = () => {
                         <button
                           disabled={!formData.leaveType || balance[formData.leaveType]?.remaining < 1 || submitLoading}
                           onClick={async () => {
+                            if (formData.leaveType === "Sick Leave" && !formData.attachment) {
+                              return toast.error("Attachment is required for Sick Leave.");
+                            }
                             try {
                               setSubmitLoading(true);
                               const uId = admin?._id || admin?.id;
-                              const payload = {
-                                employeeId: uId,
-                                leaveType: formData.leaveType,
-                                startDate: format(dateDetail.date, "yyyy-MM-dd"),
-                                endDate: format(dateDetail.date, "yyyy-MM-dd"),
-                                employeeComment: formData.reason
-                              };
-                              await axios.post("http://localhost:5000/api/leaveapplication", payload);
+                              const submitData = new FormData();
+                              submitData.append("employeeId", uId);
+                              submitData.append("leaveType", formData.leaveType);
+                              submitData.append("startDate", format(dateDetail.date, "yyyy-MM-dd"));
+                              submitData.append("endDate", format(dateDetail.date, "yyyy-MM-dd"));
+                              submitData.append("employeeComment", formData.reason);
+                              if (formData.attachment) {
+                                submitData.append("attachment", formData.attachment);
+                              }
+
+                              await axios.post("http://localhost:5000/api/leaveapplication", submitData);
                               toast.success("Leave applied successfully!");
                               setDateDetail({ ...dateDetail, show: false });
                               fetchData();

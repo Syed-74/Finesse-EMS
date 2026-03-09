@@ -74,6 +74,11 @@ const LeaveApplicationSchema = new mongoose.Schema(
     approvedAt: {
       type: Date,
     },
+
+    attachment: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

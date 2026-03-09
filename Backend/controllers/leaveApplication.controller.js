@@ -69,6 +69,12 @@ export const applyLeave = async (req, res) => {
 
     const totalDays = calculateLeaveDays(startDate, endDate, policy.holidays);
 
+    // Feature Requirement: Sick Leave → Attachment is required.
+    if (leaveType === "Sick Leave" && !req.file) {
+      return res.status(400).json({
+        message: "Attachment is required for Sick Leave."
+      });
+    }
 
     const balance = await LeaveBalance.findOne({
       employeeId,
@@ -96,7 +102,8 @@ export const applyLeave = async (req, res) => {
       startDate,
       endDate,
       totalDays,
-      employeeComment
+      employeeComment,
+      attachment: req.file ? req.file.filename : null
 
     });
 
@@ -162,6 +169,9 @@ export const getAllLeaveRequests = async (req, res) => {
 /* ==============================
    APPROVE / REJECT LEAVE
 ============================== */
+/* ==============================
+   UPDATE LEAVE STATUS
+============================== */
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -176,34 +186,89 @@ export const updateLeaveStatus = async (req, res) => {
       });
     }
 
-    // update leave status
-    leave.status = status;
-    leave.adminComment = adminComment;
-    leave.approvedAt = new Date();
+    const previousStatus = leave.status;
 
-    await leave.save();
+    // Handle Balance Updates
+    if (status === "Approved" && previousStatus !== "Approved") {
+      // Get associated policy to know the year and allocation
+      const policy = await LeavePolicy.findById(leave.leavePolicyId);
+      if (!policy) {
+        return res.status(400).json({
+          success: false,
+          message: "Associated leave policy not found",
+        });
+      }
 
-    /* ==================================
-       UPDATE LEAVE BALANCE IF APPROVED
-    ================================== */
+      // Find or Initialize Balance
+      let balance = await LeaveBalance.findOne({
+        employeeId: leave.employeeId,
+        leaveType: leave.leaveType,
+        year: policy.year,
+      });
 
-    if (status === "Approved") {
+      if (!balance) {
+        const typePolicy = policy.leaveTypes.find(
+          (t) => t.leaveType === leave.leaveType
+        );
+
+        if (!typePolicy) {
+          return res.status(400).json({
+            success: false,
+            message: `Leave type ${leave.leaveType} not found in policy`,
+          });
+        }
+
+        // Auto-create balance record
+        balance = await LeaveBalance.create({
+          employeeId: leave.employeeId,
+          leaveType: leave.leaveType,
+          totalAllocated: typePolicy.totalPerYear,
+          usedLeaves: 0,
+          remainingLeaves: typePolicy.totalPerYear,
+          year: policy.year,
+        });
+      }
+
+      // Check balance availability
+      if (balance.remainingLeaves < leave.totalDays) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient balance: ${balance.remainingLeaves} days remaining, but ${leave.totalDays} requested.`,
+        });
+      }
+
+      // Deduct Balance
+      balance.usedLeaves += leave.totalDays;
+      balance.remainingLeaves -= leave.totalDays;
+      await balance.save();
+    } else if (previousStatus === "Approved" && status !== "Approved") {
+      // Restore Balance
+      const policy = await LeavePolicy.findById(leave.leavePolicyId);
       const balance = await LeaveBalance.findOne({
         employeeId: leave.employeeId,
         leaveType: leave.leaveType,
+        year: policy?.year || new Date().getFullYear(),
       });
 
       if (balance) {
-        balance.usedLeaves += leave.totalDays;
-        balance.remainingLeaves -= leave.totalDays;
-
+        balance.usedLeaves -= leave.totalDays;
+        balance.remainingLeaves += leave.totalDays;
         await balance.save();
       }
     }
 
+    // Update leave application
+    leave.status = status;
+    leave.adminComment = adminComment || leave.adminComment;
+    if (status === "Approved") {
+      leave.approvedAt = new Date();
+    }
+
+    await leave.save();
+
     res.status(200).json({
       success: true,
-      message: "Leave status updated successfully",
+      message: `Leave status updated to ${status}`,
       data: leave,
     });
   } catch (error) {
@@ -212,6 +277,22 @@ export const updateLeaveStatus = async (req, res) => {
       message: error.message,
     });
   }
+};
+
+/* ==============================
+   APPROVE LEAVE (ADMIN)
+============================== */
+export const approveLeave = async (req, res) => {
+  req.body.status = "Approved";
+  return updateLeaveStatus(req, res);
+};
+
+/* ==============================
+   REJECT LEAVE (ADMIN)
+============================== */
+export const rejectLeave = async (req, res) => {
+  req.body.status = "Rejected";
+  return updateLeaveStatus(req, res);
 };
 // export const updateLeaveStatus = async (req, res) => {
 //   try {

@@ -16,7 +16,8 @@ const LeaveRequestsTable = () => {
         comment: "",
         employeeName: "",
         leaveType: "",
-        duration: ""
+        duration: "",
+        attachment: null
     });
 
     // Helper to safely get full name
@@ -50,7 +51,8 @@ const LeaveRequestsTable = () => {
             comment: "",
             employeeName: getEmployeeName(req.employeeId),
             leaveType: req.leaveType,
-            duration: `${format(parseISO(req.startDate), "MMM d")} - ${format(parseISO(req.endDate), "MMM d, yyyy")}`
+            duration: `${format(parseISO(req.startDate), "MMM d")} - ${format(parseISO(req.endDate), "MMM d, yyyy")}`,
+            attachment: req.attachment
         });
     };
 
@@ -85,6 +87,7 @@ const LeaveRequestsTable = () => {
                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Leave Type</th>
                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Duration</th>
                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Reason</th>
+                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Attachment</th>
                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Actions</th>
                         </tr>
@@ -126,11 +129,25 @@ const LeaveRequestsTable = () => {
                                         </span>
                                     </div>
                                 </td>
-                                <td className="p-6 max-w-xs">
+                                <td className="p-6 max-w-xs text-center border-l border-gray-100">
                                     <div className="flex items-start gap-2">
                                         <MessageSquare size={14} className="text-gray-300 mt-1 shrink-0" />
                                         <p className="text-sm text-gray-600 line-clamp-2 italic">"{req.employeeComment || "No comment"}"</p>
                                     </div>
+                                </td>
+                                <td className="p-6 text-center">
+                                    {req.attachment ? (
+                                        <a
+                                            href={`http://localhost:5000/uploads/${req.attachment}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all uppercase tracking-tighter inline-flex items-center gap-1"
+                                        >
+                                            <Calendar size={12} /> View
+                                        </a>
+                                    ) : (
+                                        <span className="text-[9px] font-bold text-gray-300 uppercase italic">None</span>
+                                    )}
                                 </td>
                                 <td className="p-6">
                                     <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${req.status === 'Approved' ? 'text-green-600' :
@@ -173,7 +190,7 @@ const LeaveRequestsTable = () => {
                         ))}
                         {requests.length === 0 && (
                             <tr>
-                                <td colSpan="6" className="p-20 text-center text-gray-400 italic">No leave requests found.</td>
+                                <td colSpan="7" className="p-20 text-center text-gray-400 italic">No leave requests found.</td>
                             </tr>
                         )}
                     </tbody>
@@ -210,6 +227,31 @@ const LeaveRequestsTable = () => {
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Duration</p>
                                     <p className="font-bold text-gray-900">{modal.duration}</p>
                                 </div>
+                            </div>
+
+                            <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Employee Attachment</p>
+                                {modal.attachment ? (
+                                    <div className="flex gap-3">
+                                        <a
+                                            href={`http://localhost:5000/uploads/${modal.attachment}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex-1 px-4 py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-xs font-black uppercase text-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle size={14} /> View Document
+                                        </a>
+                                        <a
+                                            href={`http://localhost:5000/uploads/${modal.attachment}`}
+                                            download
+                                            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase text-center hover:bg-indigo-700 transition-all shadow-md flex items-center justify-center gap-2"
+                                        >
+                                            <Clock size={14} /> Download
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm font-bold text-indigo-300 italic">No document attached.</p>
+                                )}
                             </div>
 
                             <div className="space-y-2">
