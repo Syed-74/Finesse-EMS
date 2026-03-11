@@ -41,7 +41,7 @@ const LeaveApplicationSchema = new mongoose.Schema(
     totalDays: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0.5,
     },
 
     employeeComment: {

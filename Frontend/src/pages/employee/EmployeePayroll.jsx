@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../api/axios"; // Unified axios instance
 import {
   DollarSign, Download, Eye, FileText,
   Calendar, CheckCircle, Clock, CreditCard,
@@ -7,8 +7,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
-
-const API_BASE_URL = "http://localhost:5000/api";
 
 const EmployeePayroll = () => {
   const [payrolls, setPayrolls] = useState([]);
@@ -31,7 +29,7 @@ const EmployeePayroll = () => {
   const fetchMyPayrolls = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/payroll/my/list`, { withCredentials: true });
+      const res = await axios.get("/payroll/my/list");
       setPayrolls(res.data);
       calculateStats(res.data);
     } catch (error) {
@@ -47,7 +45,11 @@ const EmployeePayroll = () => {
     const currentYear = new Date().getFullYear();
 
     const current = data.find(p => p.month === currentMonth && p.year === currentYear);
-    const paidList = data.filter(p => p.status === "PAID");
+    const paidList = data.filter(p => p.status === "PAID").sort((a, b) => {
+      if (b.year !== a.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+
     const lastPaid = paidList.length > 0 ? paidList[0].netSalary : 0;
     const yearlyTotal = paidList.filter(p => p.year === currentYear).reduce((acc, p) => acc + p.netSalary, 0);
     const pending = data.filter(p => p.status !== "PAID").length;
@@ -62,8 +64,7 @@ const EmployeePayroll = () => {
 
   const handleDownload = async (id, month, year) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/payroll/payslip/${id}`, {
-        withCredentials: true,
+      const response = await axios.get(`/payroll/payslip/${id}`, {
         responseType: 'blob'
       });
 
@@ -188,8 +189,8 @@ const EmployeePayroll = () => {
                           disabled={p.status !== "PAID"}
                           onClick={() => handleDownload(p._id, p.month, p.year)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all border ${p.status === "PAID"
-                              ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-100"
+                            ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-100"
                             }`}
                         >
                           <Download size={14} />
@@ -212,6 +213,7 @@ const EmployeePayroll = () => {
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             data={selectedPayroll}
+            handleDownload={handleDownload}
           />
         )}
       </AnimatePresence>
@@ -244,7 +246,7 @@ const SkeletonRow = () => (
   </tr>
 );
 
-const BreakdownModal = ({ isOpen, onClose, data }) => {
+const BreakdownModal = ({ isOpen, onClose, data, handleDownload }) => {
   if (!data) return null;
 
   return (
@@ -294,9 +296,6 @@ const BreakdownModal = ({ isOpen, onClose, data }) => {
               </h3>
               <div className="space-y-3">
                 <BreakdownItem label="Basic Salary" value={data.salaryStructure.basicSalary} />
-                <BreakdownItem label="HRA" value={data.salaryStructure.hra} />
-                <BreakdownItem label="Allowance" value={data.salaryStructure.allowance} />
-                <BreakdownItem label="Special Allowance" value={data.salaryStructure.specialAllowance} />
                 {data.earnings.map((e, i) => (
                   <BreakdownItem key={i} label={e.componentName} value={e.amount} isExtra />
                 ))}
@@ -310,11 +309,11 @@ const BreakdownModal = ({ isOpen, onClose, data }) => {
                 Deductions
               </h3>
               <div className="space-y-3">
-                <BreakdownItem label={`Tax (${data.taxPercentage}%)`} value={(data.grossSalary * data.taxPercentage) / 100} isDeduction />
-                <BreakdownItem label={`PF (${data.pfPercentage}%)`} value={(data.grossSalary * data.pfPercentage) / 100} isDeduction />
-                <BreakdownItem label={`ESI (${data.esiPercentage}%)`} value={(data.grossSalary * data.esiPercentage) / 100} isDeduction />
+                <BreakdownItem label={`Tax (${data.taxPercentage}%)`} value={(data.salaryStructure.basicSalary * data.taxPercentage) / 100} isDeduction />
+                <BreakdownItem label={`PF (${data.pfPercentage}%)`} value={(data.salaryStructure.basicSalary * data.pfPercentage) / 100} isDeduction />
+                <BreakdownItem label={`ESI (${data.esiPercentage}%)`} value={(data.salaryStructure.basicSalary * data.esiPercentage) / 100} isDeduction />
                 <BreakdownItem label="Professional Tax" value={data.professionalTax} isDeduction />
-                <BreakdownItem label="Unpaid Leaves" value={(data.grossSalary / data.totalWorkingDays) * data.unpaidLeaves} isDeduction />
+                <BreakdownItem label="Leave Deduction" value={data.leaveDeduction} isDeduction />
                 {data.deductions.map((d, i) => (
                   <BreakdownItem key={i} label={d.componentName} value={d.amount} isDeduction />
                 ))}
@@ -330,15 +329,23 @@ const BreakdownModal = ({ isOpen, onClose, data }) => {
               </div>
               {data.status === "PAID" && (
                 <div className="text-right">
-                  <p className="text-[10px] text-gray-500 uppercase">Paid on</p>
-                  <p className="text-sm font-bold">{new Date(data.paymentDate).toLocaleDateString()}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">Status</p>
+                  <p className="text-sm font-bold text-emerald-400 flex items-center gap-1"><CheckCircle size={14} /> Paid</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
+        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          {data.status === "PAID" && (
+            <button
+              onClick={() => handleDownload(data._id, data.month, data.year)}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"
+            >
+              <Download size={16} /> Download Payslip
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all"
@@ -355,7 +362,7 @@ const BreakdownItem = ({ label, value, isExtra, isDeduction }) => (
   <div className="flex items-center justify-between">
     <span className={`text-sm ${isExtra ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}>{label}</span>
     <span className={`text-sm font-semibold ${isDeduction ? 'text-red-500' : 'text-gray-800'}`}>
-      {isDeduction ? '-' : ''}₹{value.toLocaleString()}
+      {isDeduction ? '-' : ''}₹{value?.toLocaleString() || '0'}
     </span>
   </div>
 );

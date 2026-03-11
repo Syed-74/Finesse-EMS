@@ -3,6 +3,7 @@ import axios from "axios";
 import { format, parseISO } from "date-fns";
 import { toast } from "react-hot-toast";
 import { CheckCircle, XCircle, Clock, User, Calendar, MessageSquare, X } from "lucide-react";
+import ProfileAvatar from "../ProfileAvatar";
 
 const LeaveRequestsTable = () => {
     const [requests, setRequests] = useState([]);
@@ -15,6 +16,7 @@ const LeaveRequestsTable = () => {
         status: "",
         comment: "",
         employeeName: "",
+        employee: null,
         leaveType: "",
         duration: "",
         attachment: null
@@ -50,6 +52,7 @@ const LeaveRequestsTable = () => {
             status: status,
             comment: "",
             employeeName: getEmployeeName(req.employeeId),
+            employee: req.employeeId,
             leaveType: req.leaveType,
             duration: `${format(parseISO(req.startDate), "MMM d")} - ${format(parseISO(req.endDate), "MMM d, yyyy")}`,
             attachment: req.attachment
@@ -97,9 +100,7 @@ const LeaveRequestsTable = () => {
                             <tr key={req._id} className="hover:bg-gray-50/50 transition-colors group">
                                 <td className="p-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                                            <User size={20} />
-                                        </div>
+                                        <ProfileAvatar user={req.employeeId} className="w-10 h-10 shrink-0" />
                                         <div>
                                             <p className="font-bold text-gray-900 text-sm">
                                                 {getEmployeeName(req.employeeId)}
@@ -202,11 +203,15 @@ const LeaveRequestsTable = () => {
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] animate-in fade-in duration-300">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b border-gray-50 flex justify-between items-start bg-gradient-to-br from-indigo-50/30 to-white">
-                            <div>
-                                <span className={`font-black uppercase text-[10px] tracking-widest mb-1 block ${modal.status === 'Approved' ? 'text-green-600' : 'text-red-600'}`}>
-                                    {modal.status} Leave Request
-                                </span>
-                                <h3 className="text-2xl font-black text-gray-900">{modal.employeeName}</h3>
+                            <div className="flex items-center gap-4">
+                                <ProfileAvatar user={modal.employee} className="w-14 h-14 shadow-lg ring-4 ring-white" />
+                                <div>
+                                    <span className={`font-black uppercase text-[10px] tracking-widest mb-1 block ${modal.status === 'Approved' ? 'text-green-600' : 'text-red-600'}`}>
+                                        {modal.status} Leave Request
+                                    </span>
+                                    <h3 className="text-2xl font-black text-gray-900 leading-tight">{modal.employeeName}</h3>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-tight">{modal.employee?.email}</p>
+                                </div>
                             </div>
                             <button
                                 onClick={() => setModal({ ...modal, show: false })}

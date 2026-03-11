@@ -67,7 +67,7 @@ const LeavePolicyForm = () => {
                 ...prev.leaveTypes,
                 {
                     leaveType: "",
-                    category: "",
+                    category: "PAID",
                     totalPerYear: 10,
                     allocationType: "YEARLY",
                     monthlyAccrual: 0
@@ -87,7 +87,8 @@ const LeavePolicyForm = () => {
         newTypes[index][field] = value;
 
         if (field === "leaveType") {
-            newTypes[index].category = value.trim().toUpperCase().replace(/\s+/g, "_");
+            // No longer auto-generating category from leaveType name
+            // setSettings(prev => ...)
         }
 
         if (field === "allocationType") {
@@ -155,10 +156,10 @@ const LeavePolicyForm = () => {
             setSaving(true);
             const payload = {
                 ...settings,
-                year: settings.year || new Date().getFullYear(),
+                leaveCycle: settings.leaveCycle || { cycleType: "YEARLY", cycleStartMonth: 0 },
                 leaveTypes: settings.leaveTypes.map(t => ({
                     ...t,
-                    category: t.leaveType.toUpperCase().replace(/\s+/g, "_")
+                    category: t.category || "PAID"
                 }))
             };
 
@@ -272,6 +273,18 @@ const LeavePolicyForm = () => {
                                                 value={type.leaveType}
                                                 onChange={(e) => handleTypeChange(index, "leaveType", e.target.value)}
                                             />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Leave Category</label>
+                                            <select
+                                                className={inputClasses}
+                                                value={type.category}
+                                                onChange={(e) => handleTypeChange(index, "category", e.target.value)}
+                                            >
+                                                <option value="PAID">PAID (Standard)</option>
+                                                <option value="UNPAID">UNPAID (Deductible)</option>
+                                            </select>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">

@@ -99,5 +99,5 @@ const attendanceSchema = new mongoose.Schema(
 // ✅ Prevent duplicate attendance for same employee & date
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 
-const Attendance = mongoose.model("Attendance", attendanceSchema);
+const Attendance = mongoose.models.Attendance || mongoose.model("Attendance", attendanceSchema);
 export default Attendance;

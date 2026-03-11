@@ -94,8 +94,9 @@ export const getCurrentLeavePolicy = async (req, res) => {
     const policy = await LeavePolicy.findOne({ isActive: true });
 
     if (!policy) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
+        data: null,
         message: "No active leave policy found",
       });
     }

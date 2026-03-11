@@ -42,7 +42,7 @@ export const applyLeave = async (req, res) => {
 
   try {
 
-    const { employeeId, leaveType, startDate, endDate, employeeComment } = req.body;
+    const { employeeId, leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
 
     const policy = await LeavePolicy.findOne({ isActive: true });
 
@@ -67,7 +67,7 @@ export const applyLeave = async (req, res) => {
     }
 
 
-    const totalDays = calculateLeaveDays(startDate, endDate, policy.holidays);
+    const totalDays = calculateLeaveDays(startDate, endDate, policy.holidays, isHalfDay);
 
     // Feature Requirement: Sick Leave → Attachment is required.
     if (leaveType === "Sick Leave" && !req.file) {
@@ -76,11 +76,22 @@ export const applyLeave = async (req, res) => {
       });
     }
 
-    const balance = await LeaveBalance.findOne({
+    let balance = await LeaveBalance.findOne({
       employeeId,
       leaveType,
       year: policy.year
     });
+
+    if (!balance) {
+      balance = await LeaveBalance.create({
+        employeeId,
+        leaveType,
+        totalAllocated: leaveTypePolicy.totalPerYear,
+        usedLeaves: 0,
+        remainingLeaves: leaveTypePolicy.totalPerYear,
+        year: policy.year,
+      });
+    }
 
 
     if (leaveTypePolicy.category === "PAID") {

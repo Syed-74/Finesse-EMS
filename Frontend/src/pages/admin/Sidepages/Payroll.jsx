@@ -3,18 +3,18 @@ import axios from "../../../api/axios"; // Using centralized instance
 import {
   Plus, Search, Filter, MoreVertical, Download,
   Trash2, Edit, CheckCircle, Clock, CreditCard,
-  Users, DollarSign, FileText, ChevronRight, X
+  Users, DollarSign, FileText, ChevronRight, X, Eye,
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
-
-// Removed local API_BASE_URL as it's set in the axios instance baseURL
 
 const Payroll = () => {
   const [payrolls, setPayrolls] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState(null);
   const [filters, setFilters] = useState({
@@ -250,6 +250,15 @@ const Payroll = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => {
+                          setSelectedPayroll(payroll);
+                          setIsViewModalOpen(true);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg text-indigo-600" title="View Details"
+                      >
+                        <Eye size={16} />
+                      </button>
                       {payroll.status === "DRAFT" && (
                         <>
                           <button
@@ -258,7 +267,7 @@ const Payroll = () => {
                               setIsEditMode(true);
                               setIsModalOpen(true);
                             }}
-                            className="p-2 hover:bg-gray-100 rounded-lg text-indigo-600" title="Edit"
+                            className="p-2 hover:bg-gray-100 rounded-lg text-blue-600" title="Edit"
                           >
                             <Edit size={16} />
                           </button>
@@ -303,7 +312,7 @@ const Payroll = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Generation/Edit Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <PayrollModal
@@ -313,6 +322,19 @@ const Payroll = () => {
             isEdit={isEditMode}
             data={selectedPayroll}
             refresh={fetchData}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* View Details Modal */}
+      <AnimatePresence>
+        {isViewModalOpen && (
+          <PayrollDetailsModal
+            isOpen={isViewModalOpen}
+            onClose={() => setIsViewModalOpen(false)}
+            payroll={selectedPayroll}
+            handleAction={handleAction}
+            handleDownload={handleDownload}
           />
         )}
       </AnimatePresence>
@@ -350,6 +372,7 @@ const SkeletonRow = () => (
 
 const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => {
   const [loading, setLoading] = useState(false);
+  const [fetchingPreview, setFetchingPreview] = useState(false);
   const [formData, setFormData] = useState({
     employeeId: data?.employeeId?._id || data?.employeeId || "",
     month: data?.month || new Date().getMonth() + 1,
@@ -363,76 +386,79 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
     pfPercentage: data?.pfPercentage || 0,
     esiPercentage: data?.esiPercentage || 0,
     professionalTax: data?.professionalTax || 0,
-    unpaidLeaves: data?.unpaidLeaves || 0,
-    totalWorkingDays: data?.totalWorkingDays || 30,
+    remarks: data?.remarks || ""
   });
-  console.log(formData);
 
-  const [preview, setPreview] = useState(null);
-  const [fetchingLeaves, setFetchingLeaves] = useState(false);
+  const [preview, setPreview] = useState({
+    gross: 0,
+    deductions: 0,
+    net: 0
+  });
+  const [attendancePreview, setAttendancePreview] = useState({
+    totalWorkingDays: data?.totalWorkingDays || 0,
+    presentDays: data?.presentDays || 0,
+    unpaidLeaves: data?.unpaidLeaves || 0,
+    leaveDeduction: data?.leaveDeduction || 0,
+  });
+  console.log(attendancePreview);
 
+  // Sync basic salary when employee changes
   useEffect(() => {
-    const fetchUnpaidLeaves = async () => {
-      // Corrected API endpoint to match the backend
-      if (!formData.employeeId || !formData.month || !formData.year || isEdit) return;
-
-      setFetchingLeaves(true);
-      try {
-        const res = await axios.get(
-          `/leavemanagement/unpaid-summary/${formData.employeeId}?month=${formData.month}&year=${formData.year}`
-        );
-        setFormData((prev) => ({
+    if (formData.employeeId && !isEdit) {
+      const selectedEmp = employees.find(e => e._id === formData.employeeId);
+      if (selectedEmp?.salaryStructure) {
+        setFormData(prev => ({
           ...prev,
-          unpaidLeaves: res.data.unpaidLeaves || 0,
+          salaryStructure: {
+            basicSalary: selectedEmp.salaryStructure.basicSalary || 0
+          }
         }));
-      } catch (error) {
-        console.error("Error fetching unpaid leaves:", error);
-        toast.error("Failed to fetch leave records");
-      } finally {
-        setFetchingLeaves(false);
       }
-    };
-
-    fetchUnpaidLeaves();
-  }, [formData.employeeId, formData.month, formData.year]);
-
-  useEffect(() => {
-    if (formData.salaryStructure.basicSalary > 0) {
-      calculatePreview();
     }
+  }, [formData.employeeId, employees]);
+
+  // Debounced preview sync
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.employeeId && formData.month && formData.year) {
+        fetchBackendPreview();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
   }, [formData]);
 
-  const calculatePreview = () => {
-    // Basic values - ensure they are numbers
-    const basic = Number(formData.salaryStructure.basicSalary) || 0;
-    const workingDays = Number(formData.totalWorkingDays) || 30;
-    const unpaid = Number(formData.unpaidLeaves) || 0;
+  const fetchBackendPreview = async () => {
+    try {
+      setFetchingPreview(true);
+      const res = await axios.post("/payroll/preview", formData);
 
-    // Correct per-day calculation (avoid 0 division)
-    const perDaySalary = workingDays > 0 ? basic / workingDays : 0;
-    const leaveDeduction = perDaySalary * unpaid;
+      const {
+        totalWorkingDays,
+        unpaidLeaves,
+        presentDays,
+        leaveDeduction,
+        grossSalary,
+        totalDeductions,
+        netSalary
+      } = res.data;
 
-    // Extra components
-    const extraEarnings = formData.earnings.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
-    const extraDeductions = formData.deductions.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+      setAttendancePreview({
+        totalWorkingDays,
+        unpaidLeaves,
+        presentDays,
+        leaveDeduction
+      });
 
-    // Statutory deductions based strictly on basic salary
-    const tax = (basic * (Number(formData.taxPercentage) || 0)) / 100;
-    const pf = (basic * (Number(formData.pfPercentage) || 0)) / 100;
-    const esi = (basic * (Number(formData.esiPercentage) || 0)) / 100;
-    const ptax = Number(formData.professionalTax) || 0;
-
-    const grossSalary = basic + extraEarnings;
-    const totalDeductions = tax + pf + esi + ptax + leaveDeduction + extraDeductions;
-    const netSalary = grossSalary - totalDeductions;
-
-    setPreview({
-      gross: grossSalary,
-      deductions: totalDeductions,
-      net: Math.max(0, netSalary),
-      perDay: perDaySalary,
-      leaveDeduction: leaveDeduction
-    });
+      setPreview({
+        gross: grossSalary,
+        deductions: totalDeductions,
+        net: netSalary
+      });
+    } catch (error) {
+      console.error("Error fetching preview:", error);
+    } finally {
+      setFetchingPreview(false);
+    }
   };
 
   const addEarning = () => setFormData({ ...formData, earnings: [...formData.earnings, { componentName: "", amount: 0 }] });
@@ -475,11 +501,10 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
-        {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">{isEdit ? "Edit Payroll" : "Generate Monthly Payroll"}</h2>
-            <p className="text-sm text-gray-400">Enter salary details for the selected employee</p>
+            <h2 className="text-xl font-bold text-gray-800">{isEdit ? "Edit Payroll (Draft)" : "Generate Monthly Payroll"}</h2>
+            <p className="text-sm text-gray-400">System will automatically calculate working days and leaves</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors">
             <X size={20} />
@@ -487,7 +512,6 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
         </div>
 
         <div className="flex flex-col lg:flex-row h-full overflow-hidden">
-          {/* Form Area */}
           <form id="payroll-form" onSubmit={handleSubmit} className="flex-1 p-6 overflow-y-auto space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -541,7 +565,6 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
               </div>
             </div>
 
-            {/* Salary Structure */}
             <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
               <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                 <DollarSign size={16} className="text-indigo-500" />
@@ -559,17 +582,44 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                       className="w-full pl-7 pr-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed font-medium"
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400 italic">Read-only from employee profile</p>
                 </div>
                 <div className="space-y-1.5 hidden sm:block">
                   <div className="h-full flex items-center p-3 bg-white border border-dashed border-gray-200 rounded-lg">
-                    <p className="text-[10px] text-gray-400 leading-tight">This basic salary is used as the base for all statutory calculations and attendance-based deductions.</p>
+                    <p className="text-[10px] text-gray-400 leading-tight">Basic salary is used for per-day calculation and statutory compliance (PF/ESI/Tax).</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Attendance & Deductions Settings */}
+            {/* Attendance Summary Section */}
+            <div className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100/50">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 bg-blue-50 rounded-lg">
+                  <Calendar className="w-4 h-4 text-blue-500" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-700">Attendance Summary</h3>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Working Days</span>
+                  <p className="text-sm font-bold text-gray-700">{fetchingPreview ? "..." : attendancePreview.totalWorkingDays}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Paid Leaves</span>
+                  <p className="text-sm font-bold text-emerald-600">{fetchingPreview ? "..." : attendancePreview.paidLeavesTaken || 0}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unpaid Leaves</span>
+                  <p className="text-sm font-bold text-red-500">{fetchingPreview ? "..." : attendancePreview.unpaidLeaves}</p>
+                </div>
+                <div className="space-y-1 text-right sm:text-left">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Leave Deduction</span>
+                  <p className="text-sm font-bold text-red-600">₹{fetchingPreview ? "..." : attendancePreview.leaveDeduction?.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>{fetchingPreview && <p className="text-[10px] text-indigo-400 mt-2 italic animate-pulse">Fetching latest attendance data...</p>}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <div>
@@ -605,94 +655,29 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                     ))}
                   </div>
                 </div>
-
-                <div className="space-y-4 pt-4 border-t border-gray-100">
-                  <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between">
-                    <span>Attendance Config</span>
-                    {fetchingLeaves && <span className="flex items-center gap-1 text-[10px] text-indigo-500 font-bold animate-pulse"><Clock size={12} /> Syncing Leaves...</span>}
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-500 text-red-500 flex items-center gap-1">
-                        Unpaid Leaves (Days)
-                      </label>
-                      <div className="relative group">
-                        <input
-                          type="number"
-                          readOnly
-                          disabled
-                          value={formData.unpaidLeaves}
-                          className="w-full px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm shadow-sm text-red-700 font-black cursor-not-allowed transition-all"
-                          placeholder={fetchingLeaves ? "Calculating..." : "0"}
-                        />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {formData.unpaidLeaves > 0 ? (
-                            <CheckCircle size={16} className="text-red-400" />
-                          ) : !fetchingLeaves && (
-                            <FileText size={16} className="text-gray-300" />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Detailed Breakdown */}
-                      <div className="bg-white rounded-xl p-3 border border-gray-100 space-y-2 shadow-sm">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="text-gray-400 font-medium uppercase tracking-wider">Total Unpaid Days</span>
-                          <span className="text-red-600 font-bold">{formData.unpaidLeaves} Days</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="text-gray-400 font-medium uppercase tracking-wider">Per Day Salary</span>
-                          <span className="text-gray-700 font-bold">₹{preview?.perDay ? preview.perDay.toFixed(2) : '0.00'}</span>
-                        </div>
-                        <div className="pt-2 border-t border-gray-50 flex justify-between items-center text-[10px]">
-                          <span className="text-gray-500 font-bold uppercase tracking-wider">Total Deduction</span>
-                          <span className="text-red-600 font-black text-xs">₹{preview?.leaveDeduction ? preview.leaveDeduction.toFixed(2) : '0.00'}</span>
-                        </div>
-
-                        {formData.unpaidLeaves === 0 && !fetchingLeaves && formData.employeeId && (
-                          <p className="text-[10px] text-emerald-600 font-medium text-center bg-emerald-50 py-1 rounded-lg mt-1">
-                            ✅ No unpaid leaves for this period
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-500">Working Days (Monthly)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={formData.totalWorkingDays}
-                          onChange={(e) => setFormData({ ...formData, totalWorkingDays: e.target.value })}
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
-                        />
-                      </div>
-                      <div className="p-3 bg-indigo-50/30 rounded-xl border border-dashed border-indigo-100/50">
-                        <p className="text-[10px] text-gray-400 leading-relaxed italic">
-                          Adjustment: Total days in month (e.g. 30 or 31) used for per-day calculation.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-indigo-500 font-medium bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 leading-relaxed shadow-sm">
-                    ℹ️ <strong>System Note:</strong> Unpaid leave data is fetched automatically from <strong>Approved Leave Requests</strong>. Manual entry is disabled to ensure payroll integrity.
-                  </p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500">Remarks</label>
+                  <textarea
+                    value={formData.remarks}
+                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Any notes for this payroll..."
+                    rows="2"
+                  />
                 </div>
               </div>
 
               <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-gray-700 flex items-center justify-between mb-4">
-                    <span>Deductions (Other)</span>
+                    <span>Deductions (Extra)</span>
                     <button type="button" onClick={addDeduction} className="text-indigo-600 text-[10px] font-bold uppercase hover:underline">+ Add Row</button>
                   </h3>
                   <div className="space-y-2">
                     {formData.deductions.map((e, i) => (
                       <div key={i} className="flex gap-2">
                         <input
-                          placeholder="Fine/Other"
+                          placeholder="Fine/Advance"
                           value={e.componentName}
                           onChange={(ev) => {
                             const newDeductions = [...formData.deductions];
@@ -718,12 +703,12 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-gray-100">
-                  <h3 className="text-sm font-bold text-gray-700 mb-4">Statutory & Compliance</h3>
+                  <h3 className="text-sm font-bold text-gray-700 mb-4 text-indigo-600">Statutory Compliance (%)</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { label: "Tax %", key: "taxPercentage" },
-                      { label: "PF %", key: "pfPercentage" },
-                      { label: "ESI %", key: "esiPercentage" },
+                      { label: "Income Tax", key: "taxPercentage" },
+                      { label: "PF", key: "pfPercentage" },
+                      { label: "ESI", key: "esiPercentage" },
                       { label: "P.Tax (₹)", key: "professionalTax" },
                     ].map(item => (
                       <div key={item.key} className="space-y-1">
@@ -743,7 +728,6 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
             </div>
           </form>
 
-          {/* Preview Panel */}
           <div className="w-full lg:w-72 bg-gray-50 p-6 border-l border-gray-100 flex flex-col justify-between">
             <div>
               <h3 className="text-sm font-bold text-gray-700 mb-6 flex items-center gap-2">
@@ -753,18 +737,19 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
 
               <div className="space-y-4">
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-400 uppercase font-bold tracking-tight">Gross Payout</span>
+                  <span className="text-xs text-gray-400 uppercase font-bold tracking-tight">Est. Gross Payout</span>
                   <span className="text-xl font-bold text-gray-800">₹{preview?.gross.toLocaleString() || '--'}</span>
                 </div>
                 <div className="h-px bg-gray-200" />
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-400 uppercase font-bold tracking-tight">Total Deductions</span>
+                  <span className="text-xs text-gray-400 uppercase font-bold tracking-tight">Est. Deductions</span>
                   <span className="text-lg font-semibold text-red-500">-₹{preview?.deductions.toLocaleString() || '--'}</span>
                 </div>
                 <div className="mt-4 p-4 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100 ring-4 ring-indigo-50">
-                  <span className="text-[10px] uppercase font-bold opacity-80 mt-2">Net Payable Salary</span>
+                  <span className="text-[10px] uppercase font-bold opacity-80 mt-2">Estimated Net Salary</span>
                   <p className="text-2xl font-black mb-1">₹{preview?.net.toLocaleString() || '--'}</p>
                 </div>
+                <p className="text-[10px] text-gray-400 italic leading-tight">Note: Final net salary may vary slightly based on leave deductions calculated by the system.</p>
               </div>
             </div>
 
@@ -775,7 +760,7 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                 disabled={loading}
                 className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-50"
               >
-                {loading ? "Processing..." : isEdit ? "Update Payroll" : "Save as Draft"}
+                {loading ? "Processing..." : isEdit ? "Update Changes" : "Process & Generate"}
               </button>
               <button
                 type="button"
@@ -791,5 +776,123 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
     </div>
   )
 };
+
+const PayrollDetailsModal = ({ isOpen, onClose, payroll, handleAction, handleDownload }) => {
+  if (!payroll) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">Payroll Breakdown</h2>
+            <p className="text-sm text-gray-500">{new Date(0, payroll.month - 1).toLocaleString('en', { month: 'long' })} {payroll.year}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 transition-colors"><X size={20} /></button>
+        </div>
+
+        <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+          {/* Employee Info */}
+          <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg uppercase">
+              {payroll.employeeDetails.fullName.split(' ').map(n => n[0]).join('')}
+            </div>
+            <div>
+              <p className="font-bold text-gray-800">{payroll.employeeDetails.fullName}</p>
+              <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                <span>Code: <b>{payroll.employeeDetails.employeeCode}</b></span>
+                <span>Dept: <b>{payroll.employeeDetails.department}</b></span>
+                <span>Desig: <b>{payroll.employeeDetails.designation}</b></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Attendance Summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+            <AttendanceStat label="Total Working" value={payroll.totalWorkingDays} color="text-gray-700" />
+            <AttendanceStat label="Paid Leaves" value={payroll.paidLeavesTaken || 0} color="text-emerald-600" />
+            <AttendanceStat label="Unpaid Leaves" value={payroll.unpaidLeaves} color="text-red-500" />
+            <AttendanceStat label="Status" value={payroll.status} isStatus />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            {/* Earnings */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <div className="w-1.5 h-4 bg-indigo-500 rounded-full" /> Earnings
+              </h3>
+              <div className="space-y-3">
+                <BreakdownItem label="Basic Salary" value={payroll.salaryStructure.basicSalary} />
+                {payroll.earnings.map((e, i) => (
+                  <BreakdownItem key={i} label={e.componentName} value={e.amount} isExtra />
+                ))}
+              </div>
+            </div>
+
+            {/* Deductions */}
+            <div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <div className="w-1.5 h-4 bg-red-500 rounded-full" /> Deductions
+              </h3>
+              <div className="space-y-3">
+                <BreakdownItem label={`Tax (${payroll.taxPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.taxPercentage) / 100} isDeduction />
+                <BreakdownItem label={`PF (${payroll.pfPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100} isDeduction />
+                <BreakdownItem label={`ESI (${payroll.esiPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100} isDeduction />
+                <BreakdownItem label="P. Tax" value={payroll.professionalTax} isDeduction />
+                <BreakdownItem label="Leave Deduction" value={payroll.leaveDeduction} isDeduction />
+                {payroll.deductions.map((d, i) => (
+                  <BreakdownItem key={i} label={d.componentName} value={d.amount} isDeduction />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-gray-100">
+            <div className="flex items-center justify-between p-6 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100">
+              <div>
+                <p className="text-xs font-medium text-indigo-200 uppercase">Net Payable Amount</p>
+                <p className="text-3xl font-black">₹{payroll.netSalary.toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-medium text-indigo-200 uppercase">Gross: ₹{payroll.grossSalary.toLocaleString()}</p>
+                <p className="text-xs font-medium text-indigo-200 uppercase">Deductions: ₹{payroll.totalDeductions.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-3 justify-end">
+          {payroll.status === "DRAFT" && (
+            <button onClick={() => handleAction(payroll._id, "approve")} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">Approve Payroll</button>
+          )}
+          {payroll.status === "APPROVED" && (
+            <button onClick={() => handleAction(payroll._id, "pay")} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all">Mark as Paid</button>
+          )}
+          {payroll.status === "PAID" && (
+            <button onClick={() => handleDownload(payroll._id, payroll.month, payroll.year)} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"><Download size={16} /> Download Payslip</button>
+          )}
+          <button onClick={onClose} className="px-6 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Close</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const AttendanceStat = ({ label, value, color, isStatus }) => (
+  <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-tight">{label}</p>
+    <p className={`text-sm font-bold ${color || 'text-gray-800'}`}>{value}</p>
+  </div>
+);
+
+const BreakdownItem = ({ label, value, isExtra, isDeduction }) => (
+  <div className="flex items-center justify-between text-sm">
+    <span className={`${isExtra ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}>{label}</span>
+    <span className={`font-semibold ${isDeduction ? 'text-red-500' : 'text-gray-800'}`}>
+      {isDeduction ? '-' : ''}₹{value?.toLocaleString() || '0'}
+    </span>
+  </div>
+);
 
 export default Payroll;

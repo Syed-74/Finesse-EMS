@@ -115,9 +115,6 @@ export const generatePayslipPDF = (payroll, res) => {
 
    const items = [
       { label: 'Basic Salary', amount: payroll.salaryStructure.basicSalary },
-      { label: 'HRA', amount: payroll.salaryStructure.hra },
-      { label: 'Allowance', amount: payroll.salaryStructure.allowance },
-      { label: 'Special Allowance', amount: payroll.salaryStructure.specialAllowance },
       ...(payroll.earnings || []).map(e => ({ label: e.componentName, amount: e.amount }))
    ];
 
@@ -166,7 +163,7 @@ export const generatePayslipPDF = (payroll, res) => {
       { label: `PF (${payroll.pfPercentage}%)`, amount: (payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100 },
       { label: `ESI (${payroll.esiPercentage}%)`, amount: (payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100 },
       { label: 'Professional Tax', amount: payroll.professionalTax },
-      { label: 'Unpaid Leaves', amount: (payroll.grossSalary / payroll.totalWorkingDays) * payroll.unpaidLeaves },
+      { label: 'Unpaid Leaves', amount: payroll.leaveDeduction },
       ...(payroll.deductions || []).map(d => ({ label: d.componentName, amount: d.amount }))
    ];
 

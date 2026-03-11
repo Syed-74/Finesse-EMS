@@ -1,6 +1,4 @@
 import express from "express";
-const router = express.Router();
-
 import { payrollController } from "../controllers/payrollController.js";
 
 // 🔐 Auth Middleware
@@ -8,79 +6,75 @@ import { protectAdmin } from "../middleware/adminAuth.middleware.js";
 import { protectEmployee } from "../middleware/employeeAuth.middleware.js";
 import { protectAll } from "../middleware/auth.middleware.js";
 
-/*
-=========================================================
-  ADMIN ROUTES
-=========================================================
-*/
+const router = express.Router();
 
-// Generate payroll
-router.post(
-  "/generate",
-  protectAdmin,
-  payrollController.generate
-);
-
-// Get all payrolls
-router.get(
-  "/",
-  protectAdmin,
-  payrollController.getAll
-);
-
-// Approve payroll
-router.put(
-  "/approve/:id",
-  protectAdmin,
-  payrollController.approve
-);
-
-// Mark payroll as paid
-router.put(
-  "/pay/:id",
-  protectAdmin,
-  payrollController.markAsPaid
-);
-
-// Update payroll (Draft only)
-router.put(
-  "/:id",
-  protectAdmin,
-  payrollController.update
-);
-
-// Delete payroll (Draft only)
-router.delete(
-  "/:id",
-  protectAdmin,
-  payrollController.delete
-);
+/* =========================================================
+   ADMIN ROUTES
+========================================================= */
 
 /*
-=========================================================
-  EMPLOYEE ROUTES
-=========================================================
+Generate Payroll
+POST /api/payroll/generate
 */
+router.post("/generate", protectAdmin, payrollController.generate);
 
-// Get my payrolls
-router.get(
-  "/my/list",
-  protectEmployee,
-  payrollController.getMy
-);
+/*
+Get All Payrolls
+GET /api/payroll
+*/
+router.get("/", protectAdmin, payrollController.getAll);
 
-// Get single payroll (employee can view their own)
-router.get(
-  "/my/:id",
-  protectEmployee,
-  payrollController.getOne
-);
+/*
+Preview Payroll
+GET & POST /api/payroll/preview
+*/
+router.get("/preview", protectAdmin, payrollController.preview);
+router.post("/preview", protectAdmin, payrollController.preview);
 
-// Download payslip (Secure for both Admin & Employee)
-router.get(
-  "/payslip/:id",
-  protectAll,
-  payrollController.downloadPayslip
-);
+/*
+Approve Payroll
+PUT /api/payroll/approve/:id
+*/
+router.put("/approve/:id", protectAdmin, payrollController.approve);
+
+/*
+Mark Payroll as Paid
+PUT /api/payroll/pay/:id
+*/
+router.put("/pay/:id", protectAdmin, payrollController.markAsPaid);
+
+/*
+Update Payroll (Draft Only)
+PUT /api/payroll/:id
+*/
+router.put("/:id", protectAdmin, payrollController.update);
+
+/*
+Delete Payroll (Draft Only)
+DELETE /api/payroll/:id
+*/
+router.delete("/:id", protectAdmin, payrollController.delete);
+
+/* =========================================================
+   EMPLOYEE ROUTES
+========================================================= */
+
+/*
+Get My Payroll List
+GET /api/payroll/my/list
+*/
+router.get("/my/list", protectEmployee, payrollController.getMy);
+
+/*
+Get Single Payroll
+GET /api/payroll/my/:id
+*/
+router.get("/my/:id", protectEmployee, payrollController.getOne);
+
+/*
+Download Payslip (Admin + Employee)
+GET /api/payroll/payslip/:id
+*/
+router.get("/payslip/:id", protectAll, payrollController.downloadPayslip);
 
 export default router;
