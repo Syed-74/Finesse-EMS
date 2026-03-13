@@ -85,6 +85,12 @@ const adminSchema = new mongoose.Schema(
     lastGraphSync: {
       type: Date,
     },
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      sparse: true,
+      unique: true,
+    },
   },
   {
     timestamps: true,

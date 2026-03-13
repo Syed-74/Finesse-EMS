@@ -2,15 +2,13 @@ import bcrypt from "bcryptjs";
 import Employee from "../models/Employee.model.js";
 import LeaveManagement from "../models/LeaveApplication.model.js";
 import Admin from "../models/admin.model.js";
+import employeeService from "../services/employee.service.js";
 
 /* =========================
    HELPER: GENERATE EMPLOYEE ID
    EMP001, EMP002, ...
 ========================= */
-export const generateEmployeeId = async () => {
-    const count = await Employee.countDocuments({ deletedAt: null });
-    return `EMP${String(count + 1).padStart(3, "0")}`;
-};
+// Helper removed - now in employeeService
 
 /* =========================
    CREATE EMPLOYEE (ADMIN)
@@ -37,8 +35,9 @@ export const createEmployee = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
+        const empId = await employeeService.generateEmployeeId();
         const employee = await Employee.create({
+            employeeId: empId,
             firstName,
             lastName,
             email,
@@ -151,8 +150,8 @@ export const deleteEmployee = async (req, res) => {
 ========================= */
 export const getEmployeeProfile = async (req, res) => {
     try {
-        // req.admin is set by protectAdmin middleware (User record)
-        const email = req.admin.email;
+        // Use req.user (set by protectAll/protectUser) instead of req.admin
+        const email = req.user.email;
         const employee = await Employee.findOne({ email })
             .select("-password")
             .populate("reportingManager", "firstName lastName");

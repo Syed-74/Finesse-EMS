@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../api/axios";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../AuthContext/AuthContext";
 import {
@@ -166,10 +166,10 @@ const EmployeeLeaves = () => {
       setLoading(true);
 
       const [leaveRes, policyRes, allLeavesRes, balanceRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/leaveapplication/employee/${userId}`),
-        axios.get(`http://localhost:5000/api/leavepolicy/current`),
-        axios.get(`http://localhost:5000/api/leaveapplication`),
-        axios.get(`http://localhost:5000/api/leavebalance/employee/${userId}`)
+        axios.get("/leaveapplication/my"),
+        axios.get("/leavepolicy/current"),
+        axios.get("/leaveapplication"),
+        axios.get("/leavebalance/my")
       ]);
 
       const myLeaves = leaveRes.data.data || [];
@@ -293,7 +293,9 @@ const EmployeeLeaves = () => {
         submitData.append("attachment", formData.attachment);
       }
 
-      await axios.post(`http://localhost:5000/api/leaveapplication`, submitData);
+      await axios.post("/leaveapplication", submitData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       toast.success("Leave request submitted successfully.");
       setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "", attachment: null });
       setActiveTab("history");
@@ -705,8 +707,10 @@ const EmployeeLeaves = () => {
                               if (formData.attachment) {
                                 submitData.append("attachment", formData.attachment);
                               }
-
-                              await axios.post("http://localhost:5000/api/leaveapplication", submitData);
+                              
+                              await axios.post("/leaveapplication", submitData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
                               toast.success("Leave applied successfully!");
                               setDateDetail({ ...dateDetail, show: false });
                               fetchData();

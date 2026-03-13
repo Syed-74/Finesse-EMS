@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
+import Employee from "../models/Employee.model.js";
 
 class AuthService {
     /**
@@ -27,6 +28,9 @@ class AuthService {
      */
     async syncAdminRecord(graphData, profileImageUrl) {
         const { email, firstName, lastName, microsoftId, mobileNumber } = graphData;
+        
+        // Find existing employee to link record
+        const employee = await Employee.findOne({ email });
 
         let admin = await Admin.findOne({ email });
 
@@ -42,7 +46,8 @@ class AuthService {
                 isActive: true,
                 role: "employee", // Default role for new SSO registrations
                 profileImage: profileImageUrl || "",
-                lastGraphSync: new Date()
+                lastGraphSync: new Date(),
+                employeeId: employee?._id || null
             });
         } else {
             admin.isActive = true;
@@ -52,6 +57,7 @@ class AuthService {
             admin.ssoId = microsoftId || admin.ssoId;
             admin.lastGraphSync = new Date();
             if (profileImageUrl) admin.profileImage = profileImageUrl;
+            if (employee) admin.employeeId = employee._id;
             await admin.save();
         }
 

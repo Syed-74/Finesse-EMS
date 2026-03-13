@@ -397,6 +397,7 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
   const [attendancePreview, setAttendancePreview] = useState({
     totalWorkingDays: data?.totalWorkingDays || 0,
     presentDays: data?.presentDays || 0,
+    paidLeavesTaken: data?.paidLeavesTaken || 0,
     unpaidLeaves: data?.unpaidLeaves || 0,
     leaveDeduction: data?.leaveDeduction || 0,
   });
@@ -435,6 +436,8 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
       const {
         totalWorkingDays,
         unpaidLeaves,
+        paidLeavesLeft, // if available
+        paidLeavesTaken, // Added
         presentDays,
         leaveDeduction,
         grossSalary,
@@ -445,6 +448,7 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
       setAttendancePreview({
         totalWorkingDays,
         unpaidLeaves,
+        paidLeavesTaken, // Added
         presentDays,
         leaveDeduction
       });

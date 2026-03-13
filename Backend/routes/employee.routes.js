@@ -10,6 +10,7 @@ import {
 } from "../controllers/employee.controllers.js";
 
 import { protectAdmin } from "../middleware/adminAuth.middleware.js";
+import { protectAll } from "../middleware/auth.middleware.js";
 import upload from "../middleware/upload.middleware.js";
 
 const router = express.Router();
@@ -18,8 +19,8 @@ const router = express.Router();
    SELF PROFILE (EMPLOYEE ACCESS)
 ========================= */
 // Available to any authenticated user (Employee/Admin)
-router.get("/me", protectAdmin, getEmployeeProfile);
-router.put("/me/image", protectAdmin, upload.single("profileImage"), updateEmployeeProfileImage);
+router.get("/me", protectAll, getEmployeeProfile);
+router.put("/me/image", protectAll, upload.single("profileImage"), updateEmployeeProfileImage);
 
 
 /* =========================

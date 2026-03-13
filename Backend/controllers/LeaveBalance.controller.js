@@ -29,7 +29,13 @@ export const getAllLeaveBalances = async (req, res) => {
 // Get Leave Balance by Employee
 export const getLeaveBalanceByEmployee = async (req, res) => {
   try {
-    const { employeeId } = req.params;
+    // If req.employee exists (protectedEmployee middleware used), 
+    // enforce their own ID. Otherwise (admin), use param.
+    const employeeId = req.employee ? req.employee._id : req.params.employeeId;
+
+    if (!employeeId) {
+      return res.status(400).json({ message: "Employee ID is required" });
+    }
 
     const balances = await LeaveBalance.find({ employeeId }).populate("employeeId");
 

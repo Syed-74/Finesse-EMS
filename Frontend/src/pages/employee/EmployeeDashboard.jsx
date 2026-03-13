@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../api/axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../AuthContext/AuthContext";
 import {
@@ -43,13 +43,12 @@ const EmployeeDashboard = () => {
     if (!admin?._id) return;
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
       const todayDate = new Date().toISOString().split("T")[0];
 
-      const [attRes, leaveRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/attendance/my-attendance", config),
-        axios.get(`http://localhost:5000/api/leavemanagement/employee/${admin._id}`, config)
+      const [attRes, leaveRes, balanceRes] = await Promise.all([
+        axios.get("/attendance/my-attendance"),
+        axios.get("/leaveapplication/my"),
+        axios.get("/leavebalance/my")
       ]);
 
       // Determine today's check-in status
@@ -58,10 +57,15 @@ const EmployeeDashboard = () => {
         ? { status: todayRecord.status === 'PRESENT' ? 'Present' : todayRecord.status, time: todayRecord.inTime }
         : { status: "Not Checked In", time: "--:--" };
 
+      // Process leave balance (find total remains across all types or just the first one)
+      const balances = balanceRes.data || [];
+      const totalBalance = balances.reduce((acc, b) => acc + b.remainingLeaves, 0);
+      const totalUsed = balances.reduce((acc, b) => acc + b.usedLeaves, 0);
+
       setData({
         attendance: attRes.data.slice(0, 5), // Last 5 logs
-        leaveBalance: leaveRes.data.balance || { remainingLeaves: 0, usedLeaves: 0 },
-        pendingRequests: leaveRes.data.leaves?.filter(l => l.status === 'Pending') || [],
+        leaveBalance: { remainingLeaves: totalBalance, usedLeaves: totalUsed },
+        pendingRequests: leaveRes.data.data?.filter(l => l.status === 'Pending') || [],
         todayStatus
       });
     } catch (error) {

@@ -39,106 +39,140 @@ import { checkLeaveOverlap } from "../utils/validateLeaveOverlap.js";
 // };
 
 export const applyLeave = async (req, res) => {
+try {
+// Always take employeeId from authenticated user
+const employeeId = req.employee._id;
 
-  try {
+// 1️⃣ Get active leave policy
+const { leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
 
-    const { employeeId, leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
+// 1️⃣ Get active leave policy
+const policy = await LeavePolicy.findOne({ isActive: true });
 
-    const policy = await LeavePolicy.findOne({ isActive: true });
+if (!policy) {
+  return res.status(400).json({ message: "No active leave policy" });
+}
 
-    if (!policy) {
-      return res.status(400).json({ message: "No active leave policy" });
-    }
+// 2️⃣ Validate leave type
+const leaveTypePolicy = policy.leaveTypes.find(
+  (l) => l.leaveType === leaveType
+);
 
+if (!leaveTypePolicy) {
+  return res.status(400).json({ message: "Invalid leave type" });
+}
 
-    const leaveTypePolicy = policy.leaveTypes.find(
-      l => l.leaveType === leaveType
-    );
+// 3️⃣ Check overlapping leave dates
+const overlap = await checkLeaveOverlap(employeeId, startDate, endDate);
 
-    if (!leaveTypePolicy) {
-      return res.status(400).json({ message: "Invalid leave type" });
-    }
+if (overlap) {
+  return res.status(400).json({ message: "Leave dates overlap" });
+}
 
+// 4️⃣ Calculate leave days
+const totalDays = calculateLeaveDays(
+  startDate,
+  endDate,
+  policy.holidays,
+  isHalfDay
+);
 
-    const overlap = await checkLeaveOverlap(employeeId, startDate, endDate);
+// 5️⃣ Attachment required for Sick Leave
+if (leaveType === "Sick Leave" && !req.file) {
+  return res.status(400).json({
+    message: "Attachment is required for Sick Leave.",
+  });
+}
 
-    if (overlap) {
-      return res.status(400).json({ message: "Leave dates overlap" });
-    }
+// 6️⃣ Fetch employee leave balance
+let balance = await LeaveBalance.findOne({
+  employeeId,
+  leaveType,
+  year: policy.year,
+});
 
+// 7️⃣ Create balance record if not exists
+if (!balance) {
+  balance = await LeaveBalance.create({
+    employeeId,
+    leaveType,
+    totalAllocated: leaveTypePolicy.totalPerYear,
+    usedLeaves: 0,
+    remainingLeaves: leaveTypePolicy.totalPerYear,
+    year: policy.year,
+  });
+}
 
-    const totalDays = calculateLeaveDays(startDate, endDate, policy.holidays, isHalfDay);
-
-    // Feature Requirement: Sick Leave → Attachment is required.
-    if (leaveType === "Sick Leave" && !req.file) {
-      return res.status(400).json({
-        message: "Attachment is required for Sick Leave."
-      });
-    }
-
-    let balance = await LeaveBalance.findOne({
-      employeeId,
-      leaveType,
-      year: policy.year
+// 8️⃣ Validate paid leave balance
+if (leaveTypePolicy.category === "PAID") {
+  if (balance.remainingLeaves < totalDays) {
+    return res.status(400).json({
+      message: "Insufficient leave balance",
     });
-
-    if (!balance) {
-      balance = await LeaveBalance.create({
-        employeeId,
-        leaveType,
-        totalAllocated: leaveTypePolicy.totalPerYear,
-        usedLeaves: 0,
-        remainingLeaves: leaveTypePolicy.totalPerYear,
-        year: policy.year,
-      });
-    }
-
-
-    if (leaveTypePolicy.category === "PAID") {
-
-      if (!balance || balance.remainingLeaves < totalDays) {
-        return res.status(400).json({
-          message: "Insufficient leave balance"
-        });
-      }
-
-    }
-
-
-    const leave = await LeaveApplication.create({
-
-      employeeId,
-      leavePolicyId: policy._id,
-      leaveType,
-      startDate,
-      endDate,
-      totalDays,
-      employeeComment,
-      attachment: req.file ? req.file.filename : null
-
-    });
-
-
-    res.status(201).json({
-      success: true,
-      data: leave
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
   }
+}
 
+// 9️⃣ Create leave application
+const leave = await LeaveApplication.create({
+  employeeId,
+  leavePolicyId: policy._id,
+  leaveType,
+  startDate,
+  endDate,
+  totalDays,
+  employeeComment,
+  attachment: req.file ? req.file.filename : null,
+});
+
+res.status(201).json({
+  success: true,
+  message: "Leave request submitted successfully",
+  data: leave,
+});
+
+} catch (err) {
+res.status(500).json({
+message: err.message,
+});
+}
 };
+
+// GET /api/leaveapplication/my
+export const getMyLeaves = async (req, res) => {
+  try {
+    const employeeId = req.employee._id;
+    const leaves = await LeaveApplication.find({ employeeId }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: leaves,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 /* ==============================
    GET EMPLOYEE LEAVES
 ============================== */
 export const getEmployeeLeaves = async (req, res) => {
   try {
-    const { employeeId } = req.params;
+    const { employeeId: paramEmployeeId } = req.params;
+    
+    // Determine which employee ID to use
+    // If it's an employee logged in, we strictly use their ID
+    const employeeId = req.employee ? req.employee._id.toString() : paramEmployeeId;
+
+    // Security check: If it's an employee, they should only see their own data
+    if (req.employee && paramEmployeeId && req.employee._id.toString() !== paramEmployeeId) {
+       // Optional: We could return 403, but typically it's better to just return their own data or 403
+       return res.status(403).json({ message: "Forbidden: You can only view your own leaves" });
+    }
 
     const leaves = await LeaveApplication.find({ employeeId }).sort({
       createdAt: -1,
@@ -161,7 +195,15 @@ export const getEmployeeLeaves = async (req, res) => {
 ============================== */
 export const getAllLeaveRequests = async (req, res) => {
   try {
-    const leaves = await LeaveApplication.find()
+    let query = {};
+
+    // If it's an employee (set by protectAll -> protectEmployee-like logic)
+    // In protectAll, req.employee is set if role is 'employee'
+    if (req.user.role === 'employee' && req.employee) {
+      query.employeeId = req.employee._id;
+    }
+
+    const leaves = await LeaveApplication.find(query)
       .populate("employeeId")
       .sort({ createdAt: -1 });
 
