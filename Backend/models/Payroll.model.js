@@ -6,7 +6,7 @@ const payrollSchema = new mongoose.Schema(
        EMPLOYEE REFERENCE
     ========================= */
 
-    employeeId: {
+    employee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
       required: true,
@@ -224,7 +224,7 @@ const payrollSchema = new mongoose.Schema(
 ========================= */
 
 payrollSchema.index(
-  { employeeId: 1, month: 1, year: 1 },
+  { employee: 1, month: 1, year: 1 },
   { unique: true }
 );
 

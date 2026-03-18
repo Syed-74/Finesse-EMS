@@ -254,115 +254,156 @@ const BreakdownModal = ({ isOpen, onClose, data, handleDownload }) => {
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md"
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden"
+        className="relative bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100"
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        {/* Header Block */}
+        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-gradient-to-br from-slate-50 to-white">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Salary Breakdown</h2>
-            <p className="text-sm text-gray-500">
-              For {new Date(0, data.month - 1).toLocaleString('en', { month: 'long' })} {data.year}
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Salary Statement</span>
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+              {new Date(0, data.month - 1).toLocaleString('en', { month: 'long' })} {data.year}
+            </h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 transition-colors">
+          <button 
+            onClick={onClose} 
+            className="p-3 hover:bg-slate-100 rounded-2xl text-slate-400 transition-all active:scale-95"
+          >
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
-          {/* Summary Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-indigo-50 rounded-2xl">
-              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Gross Salary</span>
-              <p className="text-xl font-bold text-indigo-900">₹{data.grossSalary.toLocaleString()}</p>
-            </div>
-            <div className="p-4 bg-red-50 rounded-2xl">
-              <span className="text-[10px] font-bold text-red-300 uppercase tracking-wider">Total Deductions</span>
-              <p className="text-xl font-bold text-red-900">-₹{data.totalDeductions.toLocaleString()}</p>
-            </div>
+        <div className="p-8 space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
+          {/* Quick Info Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <QuickStat label="Working Days" value={data.totalWorkingDays || 0} icon={<Calendar size={14} />} />
+            <QuickStat label="Days Present" value={data.presentDays || 0} icon={<CheckCircle size={14} />} />
+            <QuickStat label="Paid Leaves" value={data.paidLeavesTaken || 0} icon={<CreditCard size={14} />} color="text-emerald-500" />
+            <QuickStat label="Unpaid Leaves" value={data.unpaidLeaves || 0} icon={<AlertCircle size={14} />} color="text-rose-500" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            {/* Earnings */}
-            <div>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-indigo-500 rounded-full" />
-                Earnings
-              </h3>
-              <div className="space-y-3">
+            {/* Earnings Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                  <DollarSign size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">Earnings</h3>
+              </div>
+              <div className="space-y-4">
                 <BreakdownItem label="Basic Salary" value={data.salaryStructure.basicSalary} />
                 {data.earnings.map((e, i) => (
                   <BreakdownItem key={i} label={e.componentName} value={e.amount} isExtra />
                 ))}
               </div>
+              <div className="pt-4 mt-4 border-t border-dashed border-slate-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400 uppercase">Gross Earnings</span>
+                <span className="text-sm font-black text-indigo-600">₹{data.grossSalary.toLocaleString()}</span>
+              </div>
             </div>
 
-            {/* Deductions */}
-            <div>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-red-500 rounded-full" />
-                Deductions
-              </h3>
-              <div className="space-y-3">
-                <BreakdownItem label={`Tax (${data.taxPercentage}%)`} value={(data.salaryStructure.basicSalary * data.taxPercentage) / 100} isDeduction />
-                <BreakdownItem label={`PF (${data.pfPercentage}%)`} value={(data.salaryStructure.basicSalary * data.pfPercentage) / 100} isDeduction />
-                <BreakdownItem label={`ESI (${data.esiPercentage}%)`} value={(data.salaryStructure.basicSalary * data.esiPercentage) / 100} isDeduction />
-                <BreakdownItem label="Professional Tax" value={data.professionalTax} isDeduction />
-                <BreakdownItem label="Leave Deduction" value={data.leaveDeduction} isDeduction />
+            {/* Deductions Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
+                  <CreditCard size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">Deductions</h3>
+              </div>
+              <div className="space-y-4">
+                {data.taxPercentage > 0 && <BreakdownItem label={`Income Tax (${data.taxPercentage}%)`} value={(data.salaryStructure.basicSalary * data.taxPercentage) / 100} isDeduction />}
+                {data.pfPercentage > 0 && <BreakdownItem label={`Provident Fund (${data.pfPercentage}%)`} value={(data.salaryStructure.basicSalary * data.pfPercentage) / 100} isDeduction />}
+                {data.esiPercentage > 0 && <BreakdownItem label={`ESI (${data.esiPercentage}%)`} value={(data.salaryStructure.basicSalary * data.esiPercentage) / 100} isDeduction />}
+                {data.professionalTax > 0 && <BreakdownItem label="Professional Tax" value={data.professionalTax} isDeduction />}
+                {data.leaveDeduction > 0 && <BreakdownItem label="Loss of Pay (Leaves)" value={data.leaveDeduction} isDeduction />}
                 {data.deductions.map((d, i) => (
                   <BreakdownItem key={i} label={d.componentName} value={d.amount} isDeduction />
                 ))}
               </div>
+              <div className="pt-4 mt-4 border-t border-dashed border-slate-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400 uppercase">Total Deductions</span>
+                <span className="text-sm font-black text-rose-500">-₹{data.totalDeductions.toLocaleString()}</span>
+              </div>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-gray-100">
-            <div className="flex items-center justify-between p-6 bg-gray-900 rounded-2xl text-white">
+          {/* Net Pay Hero Block */}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-slate-800 to-indigo-900 rounded-[1.5rem] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
+            <div className="relative flex flex-col md:flex-row items-center justify-between p-8 bg-slate-900 rounded-[1.5rem] text-white shadow-xl">
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase">Net Payable Amount</p>
-                <p className="text-2xl font-black">₹{data.netSalary.toLocaleString()}</p>
-              </div>
-              {data.status === "PAID" && (
-                <div className="text-right">
-                  <p className="text-[10px] text-gray-500 uppercase">Status</p>
-                  <p className="text-sm font-bold text-emerald-400 flex items-center gap-1"><CheckCircle size={14} /> Paid</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2">Net Payable Amount</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black tracking-tight">₹{data.netSalary.toLocaleString()}</span>
+                  <span className="text-xs text-slate-400 font-medium">Valid for current month</span>
                 </div>
-              )}
+              </div>
+              <div className="mt-6 md:mt-0 flex flex-col md:items-end gap-2">
+                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${
+                  data.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  {data.status === 'PAID' ? <><CheckCircle size={12} /> Confirmed & Paid</> : <><Clock size={12} /> Under Processing</>}
+                </div>
+                {data.paymentDate && (
+                  <p className="text-[10px] text-slate-400 font-medium">Transferred on {new Date(data.paymentDate).toLocaleDateString()}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-          {data.status === "PAID" && (
+        {/* Footer Actions */}
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-[10px] text-slate-400 italic">Generated by Finesse Payroll System Engine v2.0</p>
+          <div className="flex gap-3 w-full sm:w-auto">
             <button
-              onClick={() => handleDownload(data._id, data.month, data.year)}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"
+              onClick={onClose}
+              className="flex-1 sm:flex-none px-8 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100 hover:border-slate-300 transition-all"
             >
-              <Download size={16} /> Download Payslip
+              Dismiss
             </button>
-          )}
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all"
-          >
-            Close
-          </button>
+            {data.status === "PAID" && (
+              <button
+                onClick={() => handleDownload(data._id, data.month, data.year)}
+                className="flex-1 sm:flex-none px-8 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-200 active:scale-95"
+              >
+                <Download size={16} /> Get PDF Payslip
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
   );
 };
 
+const QuickStat = ({ label, value, icon, color = "text-slate-600" }) => (
+  <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 flex flex-col gap-1">
+    <div className="flex items-center gap-2 text-slate-400">
+      {icon}
+      <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+    </div>
+    <span className={`text-sm font-black ${color}`}>{value}</span>
+  </div>
+);
+
 const BreakdownItem = ({ label, value, isExtra, isDeduction }) => (
-  <div className="flex items-center justify-between">
-    <span className={`text-sm ${isExtra ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}>{label}</span>
-    <span className={`text-sm font-semibold ${isDeduction ? 'text-red-500' : 'text-gray-800'}`}>
-      {isDeduction ? '-' : ''}₹{value?.toLocaleString() || '0'}
+  <div className="flex items-center justify-between group">
+    <div className="flex items-center gap-2">
+      <div className={`w-1 h-1 rounded-full transition-all group-hover:scale-[2] ${isDeduction ? 'bg-rose-400' : isExtra ? 'bg-indigo-400' : 'bg-slate-300'}`} />
+      <span className={`text-xs font-medium transition-colors ${isExtra ? 'text-indigo-600' : 'text-slate-500 group-hover:text-slate-800'}`}>{label}</span>
+    </div>
+    <span className={`text-xs font-bold tabular-nums ${isDeduction ? 'text-rose-500' : 'text-slate-800'}`}>
+      {isDeduction ? '−' : ''}₹{value?.toLocaleString() || '0'}
     </span>
   </div>
 );

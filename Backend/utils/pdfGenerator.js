@@ -8,211 +8,198 @@ const __dirname = path.dirname(__filename);
 const logoPath = path.join(__dirname, '..', 'public', 'Finesse_logo.png');
 
 export const generatePayslipPDF = (payroll, res) => {
-   const doc = new PDFDocument({ margin: 50, size: 'A4' });
+   const doc = new PDFDocument({ 
+      margin: 50, 
+      size: 'A4',
+      info: {
+         Title: `Payslip_${payroll.month}_${payroll.year}`,
+         Author: 'Finesse Pvt Ltd'
+      }
+   });
 
    doc.pipe(res);
 
    const marginLeft = 50;
    const marginRight = doc.page.width - 50;
+   const contentWidth = marginRight - marginLeft;
+
+   // Colors
+   const primaryColor = '#1e293b'; // Slate 800
+   const secondaryColor = '#64748b'; // Slate 500
+   const accentColor = '#3b82f6'; // Blue 500
+   const borderColor = '#e2e8f0'; // Slate 200
+   const lightBg = '#f8fafc'; // Slate 50
 
    // ================= HEADER =================
 
-   // Light Header Background
-   doc.rect(0, 0, doc.page.width, 110).fill('#f9fafb');
-   doc.fillColor('#000000');
+   // Logo and Company info
+   try {
+      doc.image(logoPath, marginLeft, 40, { width: 80 });
+   } catch (e) {
+      // Fallback if logo not found
+      doc.fontSize(20).fillColor(primaryColor).font('Helvetica-Bold').text('FINESSE', marginLeft, 40);
+   }
 
-   // Logo
-   doc.image(logoPath, marginLeft, 30, { width: 100 });
+   doc.fillColor(primaryColor)
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .text('Finesse Pvt Ltd', marginLeft + 300, 40, { align: 'right' });
 
-   // Title
-   doc
-      .fontSize(18)
-      .fillColor('#111827')
-      .text('FInesse Pvt Ltd', 160, 40);
+   doc.fillColor(secondaryColor)
+      .fontSize(9)
+      .font('Helvetica')
+      .text('Modern Business Solutions', marginLeft + 300, 60, { align: 'right' })
+      .text('info@finesse.com | www.finesse.com', marginLeft + 300, 72, { align: 'right' });
 
-   doc
-      .fontSize(10)
-      .fillColor('#6b7280')
-      .text('Salary Payslip', 160, 60);
-
-   // Divider
-   doc
-      .moveTo(marginLeft, 100)
-      .lineTo(marginRight, 100)
-      .lineWidth(1)
-      .strokeColor('#e5e7eb')
-      .stroke();
-
-   doc.y = 120;
-
-   // ================= EMPLOYEE INFORMATION =================
-
-   doc.fillColor('#444444')
+   // Title & Period Block
+   doc.rect(marginLeft, 100, contentWidth, 40).fill(lightBg);
+   doc.fillColor(primaryColor)
       .fontSize(12)
-      .text('EMPLOYEE INFORMATION', marginLeft, 120, { underline: true });
-
-   doc.fontSize(10);
-   const infoY = 145;
-
-   doc.text(`Full Name:`, marginLeft, infoY)
       .font('Helvetica-Bold')
-      .text(`${payroll.employeeDetails.fullName}`, marginLeft + 80, infoY)
-      .font('Helvetica');
+      .text('SALARY PAYSLIP', marginLeft + 15, 115);
 
-   doc.text(`Employee Code:`, marginLeft, infoY + 15)
-      .text(`${payroll.employeeDetails.employeeCode}`, marginLeft + 100, infoY + 15);
-
-   doc.text(`Department:`, marginLeft, infoY + 30)
-      .text(`${payroll.employeeDetails.department}`, marginLeft + 80, infoY + 30);
-
-   doc.text(`Designation:`, marginLeft, infoY + 45)
-      .text(`${payroll.employeeDetails.designation}`, marginLeft + 85, infoY + 45);
-
-   // ================= PAY SUMMARY TABLE =================
-
-   const tableTop = 120;
-   const colWidth = 80;
-   const colX = [marginRight - 240, marginRight - 155, marginRight - 70];
-
-   doc.rect(colX[0], tableTop, colWidth, 20).fill('#141d38');
-   doc.rect(colX[1], tableTop, colWidth, 20).fill('#141d38');
-   doc.rect(colX[2], tableTop, colWidth, 20).fill('#141d38');
-
-   doc.fillColor('#ffffff').fontSize(8);
-   doc.text('PAY DATE', colX[0], tableTop + 7, { width: colWidth, align: 'center' });
-   doc.text('PAY PERIOD', colX[1], tableTop + 7, { width: colWidth, align: 'center' });
-   doc.text('STATUS', colX[2], tableTop + 7, { width: colWidth, align: 'center' });
-
-   doc.fillColor('#444444').fontSize(9);
-
-   const payDate = payroll.paymentDate ? new Date(payroll.paymentDate).toLocaleDateString() : 'N/A';
    const monthName = new Date(0, payroll.month - 1).toLocaleString('en', { month: 'long' });
-   const payPeriod = `${monthName} ${payroll.year}`;
-
-   doc.rect(colX[0], tableTop + 20, colWidth, 20).stroke('#eeeeee');
-   doc.rect(colX[1], tableTop + 20, colWidth, 20).stroke('#eeeeee');
-   doc.rect(colX[2], tableTop + 20, colWidth, 20).stroke('#eeeeee');
-
-   doc.text(payDate, colX[0], tableTop + 26, { width: colWidth, align: 'center' });
-   doc.text(payPeriod, colX[1], tableTop + 26, { width: colWidth, align: 'center' });
-   doc.text(payroll.status, colX[2], tableTop + 26, { width: colWidth, align: 'center' });
-
-   // ================= EARNINGS =================
-
-   let currentY = 220;
-
-   doc.fillColor('#000000')
+   doc.fillColor(secondaryColor)
       .fontSize(10)
-      .font('Helvetica-Bold')
-      .text('EARNINGS', marginLeft, currentY);
+      .font('Helvetica')
+      .text(`Period: ${monthName} ${payroll.year}`, marginLeft, 115, { align: 'right', width: contentWidth - 15 });
 
-   doc.rect(marginLeft, currentY + 15, marginRight - marginLeft, 20).fill('#f3f4f6');
-   doc.fillColor('#000000').fontSize(9)
-      .text('DESCRIPTION', marginLeft + 10, currentY + 22);
-   doc.text('AMOUNT', marginRight - 70, currentY + 22, { align: 'right' });
+   // ================= EMPLOYEE & PAY INFO =================
 
-   currentY += 35;
+   let currentY = 160;
 
-   const items = [
+   // Two column layout for info
+   const drawInfoRow = (label, value, x, y, width) => {
+      doc.fillColor(secondaryColor).fontSize(8).font('Helvetica').text(label.toUpperCase(), x, y);
+      doc.fillColor(primaryColor).fontSize(10).font('Helvetica-Bold').text(value || 'N/A', x, y + 12, { width: width });
+   };
+
+   // Column 1
+   drawInfoRow('Employee Name', payroll.employeeDetails.fullName, marginLeft, currentY, 200);
+   drawInfoRow('Employee ID', payroll.employeeDetails.employeeCode, marginLeft, currentY + 40, 200);
+   drawInfoRow('Department', payroll.employeeDetails.department, marginLeft, currentY + 80, 200);
+
+   // Column 2
+   drawInfoRow('Designation', payroll.employeeDetails.designation, marginLeft + 220, currentY, 150);
+   const payDate = payroll.paymentDate ? new Date(payroll.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending';
+   drawInfoRow('Payment Date', payDate, marginLeft + 220, currentY + 40, 150);
+   drawInfoRow('Status', payroll.status, marginLeft + 220, currentY + 80, 150);
+
+   currentY += 125;
+
+   // ================= SALARY BREAKDOWN =================
+
+   doc.moveTo(marginLeft, currentY).lineTo(marginRight, currentY).strokeColor(borderColor).lineWidth(0.5).stroke();
+   currentY += 20;
+
+   // Table Headers
+   doc.fillColor(secondaryColor).fontSize(8).font('Helvetica-Bold');
+   doc.text('EARNINGS', marginLeft, currentY);
+   doc.text('AMOUNT', marginLeft + 200, currentY, { width: 70, align: 'right' });
+
+   doc.text('DEDUCTIONS', marginLeft + 300, currentY);
+   doc.text('AMOUNT', marginRight - 70, currentY, { width: 70, align: 'right' });
+
+   currentY += 15;
+   doc.moveTo(marginLeft, currentY).lineTo(marginRight, currentY).strokeColor(primaryColor).lineWidth(1).stroke();
+   currentY += 10;
+
+   const startBreakdownY = currentY;
+
+   // Earnings List
+   const earnings = [
       { label: 'Basic Salary', amount: payroll.salaryStructure.basicSalary },
       ...(payroll.earnings || []).map(e => ({ label: e.componentName, amount: e.amount }))
    ];
 
-   doc.font('Helvetica');
-
-   items.forEach(item => {
+   let earningsY = currentY;
+   earnings.forEach(item => {
       if (item.amount > 0) {
-         doc.text(item.label, marginLeft + 10, currentY);
-         doc.text(`Rs ${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
-         currentY += 20;
-
-         doc.strokeColor('#eeeeee')
-            .moveTo(marginLeft, currentY - 5)
-            .lineTo(marginRight, currentY - 5)
-            .stroke();
+         doc.fillColor(primaryColor).fontSize(9).font('Helvetica').text(item.label, marginLeft, earningsY);
+         doc.text(`R ${item.amount.toLocaleString()}`, marginLeft + 200, earningsY, { width: 70, align: 'right' });
+         earningsY += 18;
       }
    });
 
-   doc.font('Helvetica-Bold')
-      .rect(marginLeft, currentY, marginRight - marginLeft, 25)
-      .fill('#f9fafb');
-
-   doc.fillColor('#000000')
-      .text('GROSS PAY', marginLeft + 10, currentY + 8);
-
-   doc.text(`Rs ${payroll.grossSalary.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
-
-   currentY += 40;
-
-   // ================= DEDUCTIONS =================
-
-   doc.fillColor('#000000')
-      .fontSize(10)
-      .font('Helvetica-Bold')
-      .text('DEDUCTIONS', marginLeft, currentY);
-
-   doc.rect(marginLeft, currentY + 15, marginRight - marginLeft, 20).fill('#f3f4f6');
-   doc.fillColor('#000000').fontSize(9)
-      .text('DESCRIPTION', marginLeft + 10, currentY + 22);
-   doc.text('AMOUNT', marginRight - 70, currentY + 22, { align: 'right' });
-
-   currentY += 35;
-
-   const deductionItems = [
-      { label: `Tax (${payroll.taxPercentage}%)`, amount: (payroll.salaryStructure.basicSalary * payroll.taxPercentage) / 100 },
-      { label: `PF (${payroll.pfPercentage}%)`, amount: (payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100 },
-      { label: `ESI (${payroll.esiPercentage}%)`, amount: (payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100 },
+   // Deductions List
+   const deductions = [
+      { label: 'Income Tax', amount: (payroll.salaryStructure.basicSalary * payroll.taxPercentage) / 100 },
+      { label: 'Provident Fund', amount: (payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100 },
+      { label: 'ESI', amount: (payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100 },
       { label: 'Professional Tax', amount: payroll.professionalTax },
-      { label: 'Unpaid Leaves', amount: payroll.leaveDeduction },
+      { label: 'Loss of Pay (Leaves)', amount: payroll.leaveDeduction },
       ...(payroll.deductions || []).map(d => ({ label: d.componentName, amount: d.amount }))
    ];
 
-   doc.font('Helvetica');
-
-   deductionItems.forEach(item => {
+   let deductionsY = currentY;
+   deductions.forEach(item => {
       if (item.amount > 0) {
-         doc.text(item.label, marginLeft + 10, currentY);
-         doc.text(`Rs ${item.amount.toLocaleString()}`, marginRight - 70, currentY, { align: 'right' });
-         currentY += 20;
-
-         doc.strokeColor('#eeeeee')
-            .moveTo(marginLeft, currentY - 5)
-            .lineTo(marginRight, currentY - 5)
-            .stroke();
+         doc.fillColor(primaryColor).fontSize(9).font('Helvetica').text(item.label, marginLeft + 300, deductionsY);
+         doc.text(`R ${item.amount.toLocaleString()}`, marginRight - 70, deductionsY, { width: 70, align: 'right' });
+         deductionsY += 18;
       }
    });
 
-   doc.font('Helvetica-Bold')
-      .rect(marginLeft, currentY, marginRight - marginLeft, 25)
-      .fill('#f9fafb');
+   // Use the longest column for final Y
+   currentY = Math.max(earningsY, deductionsY) + 20;
 
-   doc.fillColor('#000000')
-      .text('TOTAL DEDUCTIONS', marginLeft + 10, currentY + 8);
+   // Totals Row
+   doc.rect(marginLeft, currentY, contentWidth, 25).fill(lightBg);
+   doc.fillColor(primaryColor).fontSize(9).font('Helvetica-Bold');
+   
+   doc.text('Total Earnings', marginLeft + 5, currentY + 8);
+   doc.text(`R ${payroll.grossSalary.toLocaleString()}`, marginLeft + 200, currentY + 8, { width: 70, align: 'right' });
 
-   doc.text(`Rs ${payroll.totalDeductions.toLocaleString()}`, marginRight - 70, currentY + 8, { align: 'right' });
+   doc.text('Total Deductions', marginLeft + 305, currentY + 8);
+   doc.text(`R ${payroll.totalDeductions.toLocaleString()}`, marginRight - 70, currentY + 8, { width: 70, align: 'right' });
 
-   currentY += 40;
+   currentY += 60;
 
-   // ================= NET PAY =================
+   // ================= NET PAY SUMMARY =================
 
-   doc.rect(marginLeft, currentY, marginRight - marginLeft, 40).fill('#141d38');
+   const netPayRectHeight = 60;
+   doc.roundedRect(marginLeft, currentY, contentWidth, netPayRectHeight, 8).fill(primaryColor);
+   
+   doc.fillColor('#ffffff').fontSize(10).font('Helvetica').text('NET TAKE HOME PAY', marginLeft + 25, currentY + 15);
+   
+   doc.fontSize(22).font('Helvetica-Bold')
+      .text(`R ${payroll.netSalary.toLocaleString()}`, marginLeft, currentY + 28, { width: contentWidth - 25, align: 'right' });
 
-   doc.fillColor('#ffffff')
-      .fontSize(14)
-      .text('NET PAY', marginLeft + 20, currentY + 13);
+   // ================= ATTENDANCE SUMMARY =================
+   currentY += netPayRectHeight + 30;
+   
+   doc.fillColor(secondaryColor).fontSize(8).font('Helvetica-Bold').text('ATTENDANCE SUMMARY', marginLeft, currentY);
+   currentY += 15;
+   
+   const attendanceWidth = contentWidth / 4;
+   const drawAttendance = (label, value, x) => {
+      doc.fillColor(secondaryColor).fontSize(7).text(label, x, currentY);
+      doc.fillColor(primaryColor).fontSize(10).font('Helvetica-Bold').text(value.toString(), x, currentY + 10);
+   };
 
-   doc.text(`Rs ${payroll.netSalary.toLocaleString()}`, marginRight - 70, currentY + 13, { align: 'right' });
+   drawAttendance('Working Days', payroll.totalWorkingDays || 0, marginLeft);
+   drawAttendance('Days Present', payroll.presentDays || 0, marginLeft + attendanceWidth);
+   drawAttendance('Paid Leaves', payroll.paidLeavesTaken || 0, marginLeft + attendanceWidth * 2);
+   drawAttendance('Unpaid Leaves', payroll.unpaidLeaves || 0, marginLeft + attendanceWidth * 3);
 
    // ================= FOOTER =================
 
-   doc.fillColor('#999999')
+   doc.fillColor(secondaryColor)
       .fontSize(8)
+      .font('Helvetica')
       .text(
-         'This is a computer generated payslip and does not require a signature.',
+         'This is a digitally generated document and does not require a physical signature.',
          marginLeft,
-         780,
-         { align: 'center', width: marginRight - marginLeft }
+         750,
+         { align: 'center', width: contentWidth }
       );
+
+   doc.text(
+      '© 2026 Finesse Pvt Ltd. All rights reserved.',
+      marginLeft,
+      762,
+      { align: 'center', width: contentWidth }
+   );
 
    doc.end();
 };

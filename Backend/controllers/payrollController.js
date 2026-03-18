@@ -102,7 +102,7 @@ export const payrollController = {
         return res.status(404).json({ message: "Employee not found" });
 
       // 2. Prevent Duplicate Payroll
-      const existing = await Payroll.findOne({ employeeId, month, year });
+      const existing = await Payroll.findOne({ employee: employeeId, month, year });
       if (existing)
         return res.status(400).json({
           message: "Payroll already exists for this employee this month",
@@ -199,7 +199,7 @@ export const payrollController = {
 
       // 7. Save Payroll as DRAFT
       const payroll = await Payroll.create({
-        employeeId,
+        employee: employeeId,
         employeeDetails: {
           employeeCode: employee.employeeCode,
           fullName: `${employee.firstName} ${employee.lastName}`,
@@ -379,7 +379,7 @@ export const payrollController = {
   getAll: async (req, res) => {
     try {
       const payrolls = await Payroll.find()
-        .populate("employeeId", "firstName lastName employeeCode")
+        .populate("employee", "firstName lastName employeeCode")
         .sort({ year: -1, month: -1 });
 
       res.json(payrolls);
@@ -395,7 +395,7 @@ export const payrollController = {
   getMy: async (req, res) => {
     try {
       const payrolls = await Payroll.find({
-        employeeId: req.employee._id,
+        employee: req.employee._id,
       }).sort({ year: -1, month: -1 });
 
       res.json(payrolls);
@@ -417,7 +417,7 @@ export const payrollController = {
 
       if (
         req.employee &&
-        payroll.employeeId.toString() !== req.employee._id.toString()
+        payroll.employee.toString() !== req.employee._id.toString()
       ) {
         return res
           .status(403)
@@ -590,7 +590,7 @@ export const payrollController = {
 
       if (
         req.employee &&
-        payroll.employeeId.toString() !== req.employee._id.toString()
+        payroll.employee.toString() !== req.employee._id.toString()
       ) {
         return res
           .status(403)

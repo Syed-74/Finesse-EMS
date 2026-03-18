@@ -216,18 +216,18 @@ const Payroll = () => {
                   </td>
                 </tr>
               ) : payrolls.filter(p =>
-                p.employeeDetails.fullName.toLowerCase().includes(filters.search.toLowerCase()) ||
-                p.employeeDetails.employeeCode.toLowerCase().includes(filters.search.toLowerCase())
+                (p.employeeDetails?.fullName || "").toLowerCase().includes(filters.search.toLowerCase()) ||
+                (p.employeeDetails?.employeeCode || "").toLowerCase().includes(filters.search.toLowerCase())
               ).map((payroll) => (
                 <tr key={payroll._id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
-                        {payroll.employeeDetails.fullName.split(' ').map(n => n[0]).join('')}
+                        {(payroll.employeeDetails?.fullName || "??").split(' ').map(n => n[0]).join('')}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">{payroll.employeeDetails.fullName}</p>
-                        <p className="text-xs text-gray-400">#{payroll.employeeDetails.employeeCode}</p>
+                        <p className="text-sm font-semibold text-gray-800">{payroll.employeeDetails?.fullName || "N/A"}</p>
+                        <p className="text-xs text-gray-400">#{payroll.employeeDetails?.employeeCode || "---"}</p>
                       </div>
                     </div>
                   </td>
@@ -374,7 +374,7 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
   const [loading, setLoading] = useState(false);
   const [fetchingPreview, setFetchingPreview] = useState(false);
   const [formData, setFormData] = useState({
-    employeeId: data?.employeeId?._id || data?.employeeId || "",
+    employeeId: data?.employee?._id || data?.employee || "",
     month: data?.month || new Date().getMonth() + 1,
     year: data?.year || new Date().getFullYear(),
     salaryStructure: {
@@ -786,115 +786,181 @@ const PayrollDetailsModal = ({ isOpen, onClose, payroll, handleAction, handleDow
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-slate-900/60 backdrop-blur-md" />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+        animate={{ opacity: 1, scale: 1, y: 0 }} 
+        exit={{ opacity: 0, scale: 0.95, y: 20 }} 
+        className="relative bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100"
+      >
+        {/* Header Block */}
+        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-gradient-to-br from-slate-50 to-white">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Payroll Breakdown</h2>
-            <p className="text-sm text-gray-500">{new Date(0, payroll.month - 1).toLocaleString('en', { month: 'long' })} {payroll.year}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Payroll Summary</span>
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+              {new Date(0, payroll.month - 1).toLocaleString('en', { month: 'long' })} {payroll.year}
+            </h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 transition-colors"><X size={20} /></button>
+          <button 
+            onClick={onClose} 
+            className="p-3 hover:bg-slate-100 rounded-2xl text-slate-400 transition-all active:scale-95"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
-          {/* Employee Info */}
-          <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg uppercase">
+        <div className="p-8 space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
+          {/* Employee Identity Card */}
+          <div className="flex items-center gap-5 p-6 bg-slate-50/50 rounded-[1.5rem] border border-slate-100">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-100">
               {payroll.employeeDetails.fullName.split(' ').map(n => n[0]).join('')}
             </div>
-            <div>
-              <p className="font-bold text-gray-800">{payroll.employeeDetails.fullName}</p>
-              <div className="flex gap-4 text-xs text-gray-500 mt-1">
-                <span>Code: <b>{payroll.employeeDetails.employeeCode}</b></span>
-                <span>Dept: <b>{payroll.employeeDetails.department}</b></span>
-                <span>Desig: <b>{payroll.employeeDetails.designation}</b></span>
+            <div className="flex-1">
+              <h4 className="text-lg font-black text-slate-800 leading-tight">{payroll.employeeDetails.fullName}</h4>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                <IdentityBadge label="Code" value={payroll.employeeDetails.employeeCode} icon={<Users size={12} />} />
+                <IdentityBadge label="Dept" value={payroll.employeeDetails.department} icon={<FileText size={12} />} />
               </div>
             </div>
+            {payroll.status === 'PAID' && (
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Disbursed</span>
+                <p className="text-xs font-medium text-slate-400">{new Date(payroll.paymentDate).toLocaleDateString()}</p>
+              </div>
+            )}
           </div>
 
-          {/* Attendance Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-            <AttendanceStat label="Total Working" value={payroll.totalWorkingDays} color="text-gray-700" />
-            <AttendanceStat label="Paid Leaves" value={payroll.paidLeavesTaken || 0} color="text-emerald-600" />
-            <AttendanceStat label="Unpaid Leaves" value={payroll.unpaidLeaves} color="text-red-500" />
-            <AttendanceStat label="Status" value={payroll.status} isStatus />
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <QuickMetric label="Work Days" value={payroll.totalWorkingDays} icon={<Calendar size={14} />} />
+            <QuickMetric label="Paid Leaves" value={payroll.paidLeavesTaken || 0} icon={<CheckCircle size={14} />} color="text-emerald-500" />
+            <QuickMetric label="Unpaid Leaves" value={payroll.unpaidLeaves} icon={<AlertCircle size={14} />} color="text-rose-500" />
+            <QuickMetric label="Net Salary" value={`₹${payroll.netSalary.toLocaleString()}`} icon={<DollarSign size={14} />} color="text-slate-800" isValueBold />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            {/* Earnings */}
-            <div>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-indigo-500 rounded-full" /> Earnings
-              </h3>
-              <div className="space-y-3">
+            {/* Earnings Breakdown */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                  <DollarSign size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">Earnings</h3>
+              </div>
+              <div className="space-y-4">
                 <BreakdownItem label="Basic Salary" value={payroll.salaryStructure.basicSalary} />
                 {payroll.earnings.map((e, i) => (
                   <BreakdownItem key={i} label={e.componentName} value={e.amount} isExtra />
                 ))}
               </div>
+              <div className="pt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50/30 p-2 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Gross Total</span>
+                <span className="text-sm font-black text-slate-800">₹{payroll.grossSalary.toLocaleString()}</span>
+              </div>
             </div>
 
-            {/* Deductions */}
-            <div>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-red-500 rounded-full" /> Deductions
-              </h3>
-              <div className="space-y-3">
-                <BreakdownItem label={`Tax (${payroll.taxPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.taxPercentage) / 100} isDeduction />
-                <BreakdownItem label={`PF (${payroll.pfPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100} isDeduction />
-                <BreakdownItem label={`ESI (${payroll.esiPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100} isDeduction />
-                <BreakdownItem label="P. Tax" value={payroll.professionalTax} isDeduction />
-                <BreakdownItem label="Leave Deduction" value={payroll.leaveDeduction} isDeduction />
+            {/* Deductions Breakdown */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
+                  <CreditCard size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">Deductions</h3>
+              </div>
+              <div className="space-y-4">
+                {payroll.taxPercentage > 0 && <BreakdownItem label={`Tax (${payroll.taxPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.taxPercentage) / 100} isDeduction />}
+                {payroll.pfPercentage > 0 && <BreakdownItem label={`PF (${payroll.pfPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.pfPercentage) / 100} isDeduction />}
+                {payroll.esiPercentage > 0 && <BreakdownItem label={`ESI (${payroll.esiPercentage}%)`} value={(payroll.salaryStructure.basicSalary * payroll.esiPercentage) / 100} isDeduction />}
+                {payroll.professionalTax > 0 && <BreakdownItem label="Prof. Tax" value={payroll.professionalTax} isDeduction />}
+                {payroll.leaveDeduction > 0 && <BreakdownItem label="Leave Ded." value={payroll.leaveDeduction} isDeduction />}
                 {payroll.deductions.map((d, i) => (
                   <BreakdownItem key={i} label={d.componentName} value={d.amount} isDeduction />
                 ))}
               </div>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-gray-100">
-            <div className="flex items-center justify-between p-6 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100">
-              <div>
-                <p className="text-xs font-medium text-indigo-200 uppercase">Net Payable Amount</p>
-                <p className="text-3xl font-black">₹{payroll.netSalary.toLocaleString()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium text-indigo-200 uppercase">Gross: ₹{payroll.grossSalary.toLocaleString()}</p>
-                <p className="text-xs font-medium text-indigo-200 uppercase">Deductions: ₹{payroll.totalDeductions.toLocaleString()}</p>
+               <div className="pt-4 border-t border-slate-100 flex justify-between items-center bg-slate-50/30 p-2 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Total Deducted</span>
+                <span className="text-sm font-black text-rose-500">₹{payroll.totalDeductions.toLocaleString()}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-3 justify-end">
-          {payroll.status === "DRAFT" && (
-            <button onClick={() => handleAction(payroll._id, "approve")} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">Approve Payroll</button>
-          )}
-          {payroll.status === "APPROVED" && (
-            <button onClick={() => handleAction(payroll._id, "pay")} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all">Mark as Paid</button>
-          )}
-          {payroll.status === "PAID" && (
-            <button onClick={() => handleDownload(payroll._id, payroll.month, payroll.year)} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2"><Download size={16} /> Download Payslip</button>
-          )}
-          <button onClick={onClose} className="px-6 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Close</button>
+        {/* Footer Controlled Actions */}
+        <div className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+           <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${payroll.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{payroll.status}</span>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button 
+              onClick={onClose} 
+              className="flex-1 sm:flex-none px-8 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all"
+            >
+              Close
+            </button>
+            
+            {payroll.status === "DRAFT" && (
+              <button 
+                onClick={() => handleAction(payroll._id, "approve")} 
+                className="flex-1 sm:flex-none px-8 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+              >
+                Approve Now
+              </button>
+            )}
+            
+            {payroll.status === "APPROVED" && (
+              <button 
+                onClick={() => handleAction(payroll._id, "pay")} 
+                className="flex-1 sm:flex-none px-8 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+              >
+                Disburse Salary
+              </button>
+            )}
+            
+            {payroll.status === "PAID" && (
+              <button 
+                onClick={() => handleDownload(payroll._id, payroll.month, payroll.year)} 
+                className="flex-1 sm:flex-none px-8 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
+              >
+                <Download size={16} /> Get PDF
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>
   );
 };
 
-const AttendanceStat = ({ label, value, color, isStatus }) => (
-  <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-tight">{label}</p>
-    <p className={`text-sm font-bold ${color || 'text-gray-800'}`}>{value}</p>
+const IdentityBadge = ({ label, value, icon }) => (
+  <div className="flex items-center gap-1.5 text-slate-400">
+    <span className="p-1 rounded-md bg-slate-100 text-slate-500">{icon}</span>
+    <span className="text-[10px] font-medium">{label}:</span>
+    <span className="text-[10px] font-black text-slate-600">{value}</span>
+  </div>
+);
+
+const QuickMetric = ({ label, value, icon, color = "text-slate-500", isValueBold = false }) => (
+  <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1 ring-1 ring-slate-50">
+    <div className="flex items-center gap-2 text-slate-400">
+      {icon}
+      <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+    </div>
+    <span className={`text-sm ${isValueBold ? 'font-black' : 'font-bold'} ${color}`}>{value}</span>
   </div>
 );
 
 const BreakdownItem = ({ label, value, isExtra, isDeduction }) => (
-  <div className="flex items-center justify-between text-sm">
-    <span className={`${isExtra ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}>{label}</span>
-    <span className={`font-semibold ${isDeduction ? 'text-red-500' : 'text-gray-800'}`}>
-      {isDeduction ? '-' : ''}₹{value?.toLocaleString() || '0'}
+  <div className="flex items-center justify-between group">
+    <div className="flex items-center gap-2">
+      <div className={`w-1 h-1 rounded-full ${isDeduction ? 'bg-rose-400 transition-all group-hover:scale-150' : isExtra ? 'bg-indigo-400' : 'bg-slate-300'}`} />
+      <span className={`text-xs ${isExtra ? 'text-indigo-600 font-medium' : 'text-slate-500 font-medium group-hover:text-slate-800 transition-colors'}`}>{label}</span>
+    </div>
+    <span className={`text-xs font-bold tabular-nums ${isDeduction ? 'text-rose-500' : 'text-slate-800'}`}>
+      {isDeduction ? '−' : ''}₹{value?.toLocaleString() || '0'}
     </span>
   </div>
 );

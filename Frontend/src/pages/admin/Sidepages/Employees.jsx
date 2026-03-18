@@ -16,23 +16,19 @@ import {
   Briefcase,
   User,
   MapPin,
-  Clock,
   ArrowRight,
   ArrowLeft,
-  Calendar,
   DollarSign
 } from "lucide-react";
 
 // Configure base API_URL
 const API_URL = "http://localhost:5000/api/employees";
 
-// Steps configuration
 const STEPS = [
   { id: 1, title: "Personal", icon: User },
   { id: 2, title: "Professional", icon: Briefcase },
-  { id: 3, title: "Work Config", icon: Clock },
-  { id: 4, title: "Address", icon: MapPin },
-  { id: 5, title: "Salary Structure", icon: DollarSign },
+  { id: 3, title: "Address", icon: MapPin },
+  { id: 4, title: "Salary Structure", icon: DollarSign },
 ];
 
 export default function Employees() {
@@ -369,55 +365,7 @@ export default function Employees() {
             </div>
           </div>
         );
-      case 3: // Work Config
-        return (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-sm">Attendance Tracking</h4>
-                <p className="text-xs text-gray-500">Require daily check-in/out</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={currentEmployee.attendanceRequired} onChange={e => setCurrentEmployee({ ...currentEmployee, attendanceRequired: e.target.checked })} />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Leave Balance (Days)</label>
-              <input
-                type="number"
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                value={currentEmployee.leaveBalance}
-                onChange={e => setCurrentEmployee({ ...currentEmployee, leaveBalance: Number(e.target.value) })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">Weekly Off Days</label>
-              <div className="flex flex-wrap gap-2">
-                {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map(day => (
-                  <button
-                    key={day}
-                    onClick={() => {
-                      const offs = currentEmployee.weeklyOff.includes(day)
-                        ? currentEmployee.weeklyOff.filter(d => d !== day)
-                        : [...currentEmployee.weeklyOff, day];
-                      setCurrentEmployee({ ...currentEmployee, weeklyOff: offs });
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${currentEmployee.weeklyOff.includes(day)
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                      }`}
-                  >
-                    {day.slice(0, 3)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      case 4: // Address
+      case 3: // Address
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div>
@@ -449,7 +397,7 @@ export default function Employees() {
 
           </div>
         );
-      case 5: // Salary Structure
+      case 4: // Salary Structure
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3">
