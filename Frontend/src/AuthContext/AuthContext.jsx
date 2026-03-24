@@ -1,6 +1,6 @@
-// context/AuthContext.jsx
 import React, { useState, useEffect, createContext, useContext } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext();
 
@@ -10,6 +10,7 @@ const AuthProvider = ({ children }) => {
   const [admin, setAdmin] = useState(null);      // currently signed in user (null if none)
   const [loading, setLoading] = useState(true);  // true while checking/refreshing auth
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Helper: set axios default Authorization header when token available
   const setAuthHeader = (token) => {
@@ -60,10 +61,18 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   // Useful helpers exposed by context
-  const signOut = () => {
-    localStorage.removeItem("token");
-    setAuthHeader(null);
-    setAdmin(null);
+  const signOut = async () => {
+    try {
+      // Optional: notify backend about logout
+      await axios.post("http://localhost:5000/api/auth/logout");
+    } catch (err) {
+      console.error("Backend logout failed:", err.message);
+    } finally {
+      localStorage.removeItem("token");
+      setAuthHeader(null);
+      setAdmin(null);
+      navigate("/");
+    }
   };
 
   const values = {

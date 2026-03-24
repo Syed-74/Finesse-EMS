@@ -38,7 +38,6 @@ const Topbar = ({ toggleSidebar }) => {
 
   const handleLogout = () => {
     signOut();
-    navigate("/login");
   };
 
   return (
