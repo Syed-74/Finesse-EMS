@@ -47,9 +47,9 @@ const AdminDashboard = () => {
 
       const [empRes, leaveStatRes, attendanceRes, activityRes] = await Promise.all([
         axios.get("http://localhost:5000/api/employees", config),
-        axios.get("http://localhost:5000/api/leavemanagement/stats", config),
-        axios.get(`http://localhost:5000/api/attendance/all?date=${today}`, config),
-        axios.get("http://localhost:5000/api/leavemanagement/all-requests", config)
+        axios.get("http://localhost:5000/api/leaveapplication/stats", config),
+        axios.get("http://localhost:5000/api/attendance/all?date=" + today, config),
+        axios.get("http://localhost:5000/api/leaveapplication", config)
       ]);
 
       // Process Attendance Status Counts
@@ -69,7 +69,7 @@ const AdminDashboard = () => {
         totalEmployees: Array.isArray(empRes.data) ? empRes.data.length : 0,
         leaveStats: leaveStatRes.data || { totalRequests: 0, pending: 0, onLeaveToday: 0 },
         attendanceToday: attStats,
-        recentActivity: Array.isArray(activityRes.data) ? activityRes.data.slice(0, 6) : []
+        recentActivity: Array.isArray(activityRes.data?.data) ? activityRes.data.data.slice(0, 6) : []
       });
     } catch (error) {
       console.error("Dashboard Sync Error:", error);

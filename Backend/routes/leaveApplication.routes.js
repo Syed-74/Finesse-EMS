@@ -7,7 +7,8 @@ import {
    updateLeaveStatus,
    approveLeave,
    rejectLeave,
-   getTodayLeave
+   getTodayLeave,
+   getLeaveStats
 } from "../controllers/leaveApplication.controller.js";
 
 import upload from "../middleware/upload.middleware.js";
@@ -42,6 +43,7 @@ router.get("/", protectAll, getAllLeaveRequests);
    PUT /api/leaveapplication/approve/:id
    PUT /api/leaveapplication/reject/:id
 ============================== */
+router.get("/stats", protectAdmin, getLeaveStats);
 router.put("/approve/:id", protectAdmin, approveLeave);
 router.put("/reject/:id", protectAdmin, rejectLeave);
 router.put("/:id/status", protectAdmin, updateLeaveStatus);

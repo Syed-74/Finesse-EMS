@@ -63,9 +63,9 @@ const EmployeeDashboard = () => {
       const totalUsed = balances.reduce((acc, b) => acc + b.usedLeaves, 0);
 
       setData({
-        attendance: attRes.data.slice(0, 5),
+        attendance: Array.isArray(attRes.data) ? attRes.data.slice(0, 5) : [],
         leaveBalance: { remainingLeaves: totalBalance, usedLeaves: totalUsed },
-        pendingRequests: leaveRes.data.data?.filter(l => l.status === 'Pending') || [],
+        pendingRequests: Array.isArray(leaveRes.data?.data) ? leaveRes.data.data.filter(l => l.status === 'Pending') : [],
         todayStatus,
         shift: shiftRes.data
       });

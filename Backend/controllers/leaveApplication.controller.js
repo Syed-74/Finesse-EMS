@@ -38,105 +38,129 @@ import { checkLeaveOverlap } from "../utils/validateLeaveOverlap.js";
 //   }
 // };
 
+/* ==============================
+   GET LEAVE STATS (ADMIN)
+============================== */
+export const getLeaveStats = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [totalRequests, pending, onLeaveToday] = await Promise.all([
+      LeaveApplication.countDocuments(),
+      LeaveApplication.countDocuments({ status: "Pending" }),
+      LeaveApplication.countDocuments({
+        status: "Approved",
+        startDate: { $lte: today },
+        endDate: { $gte: today }
+      })
+    ]);
+
+    res.json({ totalRequests, pending, onLeaveToday });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const applyLeave = async (req, res) => {
-try {
-// Always take employeeId from authenticated user
-const employeeId = req.employee._id;
+  try {
+    // Always take employeeId from authenticated user
+    const employeeId = req.employee._id;
 
-// 1️⃣ Get active leave policy
-const { leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
+    // 1️⃣ Get active leave policy
+    const { leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
 
-// 1️⃣ Get active leave policy
-const policy = await LeavePolicy.findOne({ isActive: true });
+    // 1️⃣ Get active leave policy
+    const policy = await LeavePolicy.findOne({ isActive: true });
 
-if (!policy) {
-  return res.status(400).json({ message: "No active leave policy" });
-}
+    if (!policy) {
+      return res.status(400).json({ message: "No active leave policy" });
+    }
 
-// 2️⃣ Validate leave type
-const leaveTypePolicy = policy.leaveTypes.find(
-  (l) => l.leaveType === leaveType
-);
+    // 2️⃣ Validate leave type
+    const leaveTypePolicy = policy.leaveTypes.find(
+      (l) => l.leaveType === leaveType
+    );
 
-if (!leaveTypePolicy) {
-  return res.status(400).json({ message: "Invalid leave type" });
-}
+    if (!leaveTypePolicy) {
+      return res.status(400).json({ message: "Invalid leave type" });
+    }
 
-// 3️⃣ Check overlapping leave dates
-const overlap = await checkLeaveOverlap(employeeId, startDate, endDate);
+    // 3️⃣ Check overlapping leave dates
+    const overlap = await checkLeaveOverlap(employeeId, startDate, endDate);
 
-if (overlap) {
-  return res.status(400).json({ message: "Leave dates overlap" });
-}
+    if (overlap) {
+      return res.status(400).json({ message: "Leave dates overlap" });
+    }
 
-// 4️⃣ Calculate leave days
-const totalDays = calculateLeaveDays(
-  startDate,
-  endDate,
-  policy.holidays,
-  isHalfDay
-);
+    // 4️⃣ Calculate leave days
+    const totalDays = calculateLeaveDays(
+      startDate,
+      endDate,
+      policy.holidays,
+      isHalfDay
+    );
 
-// 5️⃣ Attachment required for Sick Leave
-if (leaveType === "Sick Leave" && !req.file) {
-  return res.status(400).json({
-    message: "Attachment is required for Sick Leave.",
-  });
-}
+    // 5️⃣ Attachment required for Sick Leave
+    if (leaveType === "Sick Leave" && !req.file) {
+      return res.status(400).json({
+        message: "Attachment is required for Sick Leave.",
+      });
+    }
 
-// 6️⃣ Fetch employee leave balance
-let balance = await LeaveBalance.findOne({
-  employeeId,
-  leaveType,
-  year: policy.year,
-});
+    // 6️⃣ Fetch employee leave balance
+    let balance = await LeaveBalance.findOne({
+      employeeId,
+      leaveType,
+      year: policy.year,
+    });
 
-// 7️⃣ Create balance record if not exists
-if (!balance) {
-  balance = await LeaveBalance.create({
-    employeeId,
-    leaveType,
-    totalAllocated: leaveTypePolicy.totalPerYear,
-    usedLeaves: 0,
-    remainingLeaves: leaveTypePolicy.totalPerYear,
-    year: policy.year,
-  });
-}
+    // 7️⃣ Create balance record if not exists
+    if (!balance) {
+      balance = await LeaveBalance.create({
+        employeeId,
+        leaveType,
+        totalAllocated: leaveTypePolicy.totalPerYear,
+        usedLeaves: 0,
+        remainingLeaves: leaveTypePolicy.totalPerYear,
+        year: policy.year,
+      });
+    }
 
-// 8️⃣ Validate paid leave balance
-if (leaveTypePolicy.category === "PAID") {
-  if (balance.remainingLeaves < totalDays) {
-    return res.status(400).json({
-      message: "Insufficient leave balance",
+    // 8️⃣ Validate paid leave balance
+    if (leaveTypePolicy.category === "PAID") {
+      if (balance.remainingLeaves < totalDays) {
+        return res.status(400).json({
+          message: "Insufficient leave balance",
+        });
+      }
+    }
+
+    // 9️⃣ Create leave application
+    const leave = await LeaveApplication.create({
+      employeeId,
+      leavePolicyId: policy._id,
+      leaveType,
+      startDate,
+      endDate,
+      totalDays,
+      type: isHalfDay ? "Half Day" : "Full Day",
+      half: isHalfDay ? req.body.half : undefined,
+      employeeComment,
+      attachment: req.file ? req.file.filename : null,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Leave request submitted successfully",
+      data: leave,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
     });
   }
-}
-
-// 9️⃣ Create leave application
-const leave = await LeaveApplication.create({
-  employeeId,
-  leavePolicyId: policy._id,
-  leaveType,
-  startDate,
-  endDate,
-  totalDays,
-  type: isHalfDay ? "Half Day" : "Full Day",
-  half: isHalfDay ? req.body.half : undefined,
-  employeeComment,
-  attachment: req.file ? req.file.filename : null,
-});
-
-res.status(201).json({
-  success: true,
-  message: "Leave request submitted successfully",
-  data: leave,
-});
-
-} catch (err) {
-res.status(500).json({
-message: err.message,
-});
-}
 };
 
 // GET /api/leaveapplication/my
@@ -191,15 +215,15 @@ export const getTodayLeave = async (req, res) => {
 export const getEmployeeLeaves = async (req, res) => {
   try {
     const { employeeId: paramEmployeeId } = req.params;
-    
+
     // Determine which employee ID to use
     // If it's an employee logged in, we strictly use their ID
     const employeeId = req.employee ? req.employee._id.toString() : paramEmployeeId;
 
     // Security check: If it's an employee, they should only see their own data
     if (req.employee && paramEmployeeId && req.employee._id.toString() !== paramEmployeeId) {
-       // Optional: We could return 403, but typically it's better to just return their own data or 403
-       return res.status(403).json({ message: "Forbidden: You can only view your own leaves" });
+      // Optional: We could return 403, but typically it's better to just return their own data or 403
+      return res.status(403).json({ message: "Forbidden: You can only view your own leaves" });
     }
 
     const leaves = await LeaveApplication.find({ employeeId }).sort({
