@@ -68,7 +68,8 @@ export const applyLeave = async (req, res) => {
     const employeeId = req.employee._id;
 
     // 1️⃣ Get active leave policy
-    const { leaveType, startDate, endDate, employeeComment, isHalfDay } = req.body;
+    const { leaveType, startDate, endDate, employeeComment } = req.body;
+    const isHalfDay = req.body.isHalfDay === "true" || req.body.isHalfDay === true;
 
     // 1️⃣ Get active leave policy
     const policy = await LeavePolicy.findOne({ isActive: true });
@@ -86,17 +87,29 @@ export const applyLeave = async (req, res) => {
       return res.status(400).json({ message: "Invalid leave type" });
     }
 
-    // 3️⃣ Check overlapping leave dates
-    const overlap = await checkLeaveOverlap(employeeId, startDate, endDate);
+    // 3️⃣ Date consistency for Half Day
+    let finalEndDate = endDate;
+    if (isHalfDay) {
+      finalEndDate = startDate; // Force single day for half-day
+    }
+
+    // 4️⃣ Check overlapping leave dates
+    const overlap = await checkLeaveOverlap(
+      employeeId, 
+      startDate, 
+      finalEndDate, 
+      isHalfDay, 
+      req.body.half
+    );
 
     if (overlap) {
       return res.status(400).json({ message: "Leave dates overlap" });
     }
 
-    // 4️⃣ Calculate leave days
+    // 5️⃣ Calculate leave days
     const totalDays = calculateLeaveDays(
       startDate,
-      endDate,
+      finalEndDate,
       policy.holidays,
       isHalfDay
     );
@@ -142,7 +155,7 @@ export const applyLeave = async (req, res) => {
       leavePolicyId: policy._id,
       leaveType,
       startDate,
-      endDate,
+      endDate: finalEndDate,
       totalDays,
       type: isHalfDay ? "Half Day" : "Full Day",
       half: isHalfDay ? req.body.half : undefined,

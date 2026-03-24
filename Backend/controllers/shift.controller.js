@@ -5,16 +5,40 @@ import Employee from "../models/employee.model.js";
 export const createShift = async (req, res) => {
   try {
     const { shiftType, startTime, endTime, duration } = req.body;
-    
+
     const existing = await Shift.findOne({ shiftType });
     if (existing) {
-      return res.status(400).json({ message: `Shift type ${shiftType} already exists` });
+      return res.status(400).json({
+        message: `Shift type ${shiftType} already exists`
+      });
     }
 
-    const shift = await Shift.create({ shiftType, startTime, endTime, duration });
-    res.status(201).json({ message: "Shift created successfully", shift });
+    const shift = await Shift.create({
+      shiftType,
+      startTime,
+      endTime,
+      duration
+    });
+
+    res.status(201).json({
+      message: "Shift created successfully",
+      shift
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+
+    // ✅ HANDLE DUPLICATE KEY ERROR (IMPORTANT)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Shift already exists"
+      });
+    }
+
+    console.error("Create Shift Error:", error);
+
+    res.status(500).json({
+      message: "Server Error while creating shift"
+    });
   }
 };
 

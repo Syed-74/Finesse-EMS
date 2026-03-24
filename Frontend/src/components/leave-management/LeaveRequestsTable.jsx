@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../api/axios";
 import { format, parseISO } from "date-fns";
 import { toast } from "react-hot-toast";
 import { CheckCircle, XCircle, Clock, User, Calendar, MessageSquare, X } from "lucide-react";
@@ -31,7 +31,7 @@ const LeaveRequestsTable = () => {
     const fetchRequests = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/leaveapplication");
+            const res = await axios.get("/leaveapplication");
             setRequests(res.data.data || []);
         } catch (error) {
             console.error("Error fetching requests:", error);
@@ -64,7 +64,7 @@ const LeaveRequestsTable = () => {
 
         try {
             setActionLoading(requestId);
-            await axios.put(`http://localhost:5000/api/leaveapplication/${requestId}/status`, {
+            await axios.put(`/leaveapplication/${requestId}/status`, {
                 status,
                 adminComment: comment
             });
@@ -130,9 +130,14 @@ const LeaveRequestsTable = () => {
                                         <span className="text-sm font-bold">
                                             {format(parseISO(req.startDate), "MMM d")} - {format(parseISO(req.endDate), "MMM d, yyyy")}
                                         </span>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ml-2 ${req.type === 'Half Day' ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                            {req.totalDays} Days {req.type === 'Half Day' ? `(${req.half})` : ''}
-                                        </span>
+                                         <span className={`text-[10px] font-black px-2 py-1 rounded-xl ml-2 flex items-center gap-1 ${req.type === 'Half Day' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-100' : 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100'}`}>
+                                              {req.totalDays} {req.totalDays <= 1 ? 'Day' : 'Days'} 
+                                             {req.type === 'Half Day' && (
+                                                 <span className="bg-amber-600 text-white px-1.5 py-0.5 rounded-md text-[8px] uppercase ring-1 ring-amber-200">
+                                                     {req.half === 'First Half' ? '1st Half' : '2nd Half'}
+                                                 </span>
+                                             )}
+                                         </span>
                                     </div>
                                 </td>
                                 <td className="p-6 max-w-xs text-center border-l border-gray-100">

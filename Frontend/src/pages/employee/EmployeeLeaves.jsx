@@ -244,8 +244,10 @@ const EmployeeLeaves = () => {
   // SMART CALCULATION
   const calculateDuration = (start, end) => {
     if (!start || !end) return 0;
-    const startDate = parseISO(start);
     if (formData.type === 'Half Day') return 0.5;
+    
+    const startDate = parseISO(start);
+    const endDate = parseISO(end);
     
     const days = eachDayOfInterval({ start: startDate, end: endDate });
     const workingDays = days.filter(day => {
@@ -259,6 +261,10 @@ const EmployeeLeaves = () => {
 
   // Recalculate when dates change
   useEffect(() => {
+    // If it's a half day, force endDate = startDate
+    if (formData.type === 'Half Day' && formData.startDate && formData.endDate !== formData.startDate) {
+      setFormData(prev => ({ ...prev, endDate: prev.startDate }));
+    }
     const days = calculateDuration(formData.startDate, formData.endDate);
     setCalculatedDays(days);
   }, [formData.startDate, formData.endDate, holidays, formData.type]);
@@ -290,7 +296,7 @@ const EmployeeLeaves = () => {
       submitData.append("startDate", formData.startDate);
       submitData.append("endDate", formData.endDate);
       submitData.append("employeeComment", formData.reason);
-      submitData.append("type", formData.type);
+      submitData.append("isHalfDay", formData.type === 'Half Day');
       if (formData.type === 'Half Day') {
          submitData.append("half", formData.half);
       }
@@ -447,7 +453,7 @@ const EmployeeLeaves = () => {
                       required
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100"
                       value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -458,7 +464,7 @@ const EmployeeLeaves = () => {
                       className={`w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 ${formData.endDate && formData.startDate && new Date(formData.endDate) < new Date(formData.startDate) ? "border-red-500 bg-red-50" : ""
                         }`}
                       value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                     />
                     {formData.endDate && formData.startDate && new Date(formData.endDate) < new Date(formData.startDate) && (
                       <p className="text-[10px] text-red-500 font-bold uppercase mt-1">End date cannot be before start date</p>
@@ -474,7 +480,14 @@ const EmployeeLeaves = () => {
                         <button
                           key={t}
                           type="button"
-                          onClick={() => setFormData({ ...formData, type: t, endDate: t === 'Half Day' ? formData.startDate : formData.endDate })}
+                          onClick={() => {
+                            const newType = t;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              type: newType, 
+                              endDate: newType === 'Half Day' ? prev.startDate : prev.endDate 
+                            }));
+                          }}
                           className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${formData.type === t ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
                         >
                           {t}
@@ -490,7 +503,7 @@ const EmployeeLeaves = () => {
                           <button
                             key={h}
                             type="button"
-                            onClick={() => setFormData({ ...formData, half: h })}
+                            onClick={() => setFormData(prev => ({ ...prev, half: h }))}
                             className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.half === h ? "bg-white text-amber-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
                           >
                             {h}
@@ -533,7 +546,7 @@ const EmployeeLeaves = () => {
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 h-32 resize-none"
                     placeholder="Why do you need leave?"
                     value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
                   />
                 </div>
 
@@ -545,7 +558,7 @@ const EmployeeLeaves = () => {
                     <input
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(e) => setFormData({ ...formData, attachment: e.target.files[0] })}
+                      onChange={(e) => setFormData(prev => ({ ...prev, attachment: e.target.files[0] }))}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition duration-300"
                     />
                     {formData.leaveType === "Sick Leave" && !formData.attachment && (
@@ -615,7 +628,10 @@ const EmployeeLeaves = () => {
               holidays={holidays}
               myLeaves={history}
               teamLeaves={teamLeaves}
-              onDateClick={(date, holiday, personal, teams) => setDateDetail({ show: true, date, holiday, personal, teams })}
+              onDateClick={(date, holiday, personal, teams) => {
+                setFormData(prev => ({ ...prev, type: 'Full Day', half: 'First Half' }));
+                setDateDetail({ show: true, date, holiday, personal, teams });
+              }}
             />
           )}
         </div>
@@ -690,7 +706,7 @@ const EmployeeLeaves = () => {
                         <select
                           className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100"
                           value={formData.leaveType}
-                          onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
+                          onChange={(e) => setFormData(prev => ({ ...prev, leaveType: e.target.value }))}
                         >
                           <option value="">Select Leave Type</option>
                           {Object.keys(balance).map(type => (
@@ -702,7 +718,7 @@ const EmployeeLeaves = () => {
                           className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100 h-20 resize-none"
                           placeholder="Why are you taking leave?"
                           value={formData.reason}
-                          onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                          onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
                         />
 
                         <div className="space-y-1">
@@ -712,7 +728,7 @@ const EmployeeLeaves = () => {
                           <input
                             type="file"
                             accept="image/*,application/pdf"
-                            onChange={(e) => setFormData({ ...formData, attachment: e.target.files[0] })}
+                            onChange={(e) => setFormData(prev => ({ ...prev, attachment: e.target.files[0] }))}
                             className="w-full px-4 py-2 bg-white rounded-xl border border-indigo-100 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition duration-300"
                           />
                           {formData.leaveType === "Sick Leave" && !formData.attachment && (
@@ -722,7 +738,42 @@ const EmployeeLeaves = () => {
                           )}
                         </div>
 
-                        {(!formData.leaveType || (balance[formData.leaveType]?.remaining < 1)) && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</label>
+                            <div className="flex bg-white p-1 rounded-xl border border-indigo-100">
+                              {["Full Day", "Half Day"].map(t => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, type: t }))}
+                                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.type === t ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {formData.type === "Half Day" && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Half</label>
+                              <div className="flex bg-white p-1 rounded-xl border border-indigo-100">
+                                {["First Half", "Second Half"].map(h => (
+                                  <button
+                                    key={h}
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, half: h })}
+                                    className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.half === h ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                  >
+                                    {h[0]}st
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {(!formData.leaveType || (balance[formData.leaveType]?.remaining < (formData.type === 'Half Day' ? 0.5 : 1))) && (
                           <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
                             <AlertCircle size={14} />
                             {!formData.leaveType ? "Select a leave type to continue" : "Insufficient balance"}
@@ -744,6 +795,10 @@ const EmployeeLeaves = () => {
                               submitData.append("startDate", format(dateDetail.date, "yyyy-MM-dd"));
                               submitData.append("endDate", format(dateDetail.date, "yyyy-MM-dd"));
                               submitData.append("employeeComment", formData.reason);
+                              submitData.append("isHalfDay", formData.type === 'Half Day');
+                              if (formData.type === 'Half Day') {
+                                submitData.append("half", formData.half);
+                              }
                               if (formData.attachment) {
                                 submitData.append("attachment", formData.attachment);
                               }

@@ -119,16 +119,26 @@ export const punchIn = async (req, res) => {
     });
 
     let attendanceStatus = "Present";
+    
+    // Dynamic Mid-time calculation: StartTime + (ShiftDuration / 2)
+    const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
+    const midTimeMinutes = shiftDurationMinutes / 2;
+    
     const midTime = new Date(shiftStartToday);
-    midTime.setMinutes(midTime.getMinutes() + 270); // 4.5 hours (9h / 2)
+    midTime.setMinutes(midTime.getMinutes() + midTimeMinutes);
 
     if (approvedLeave) {
       if (approvedLeave.half === "First Half") {
+        // Must punch in AFTER mid-time
         if (now < midTime) {
-          return res.status(400).json({ message: "First Half Leave: Check-in must be after mid-time (" + midTime.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'}) + ")" });
+          return res.status(400).json({ 
+            message: `First Half Leave: You can only punch in after ${midTime.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}` 
+          });
         }
         attendanceStatus = "Half Day";
       } else if (approvedLeave.half === "Second Half") {
+        // Can punch in normally, but status is Half Day
+        // Optional: Enforcement to punch out early handled by policy
         attendanceStatus = "Half Day";
       }
     } else {

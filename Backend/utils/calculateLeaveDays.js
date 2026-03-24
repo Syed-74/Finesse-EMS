@@ -20,9 +20,9 @@ export const calculateLeaveDays = (startDate, endDate, holidays, isHalfDay = fal
 
   }
 
-  // If it's a half day and totalDays is 1 (same day), return 0.5
-  if (isHalfDay && totalDays === 1) {
-    return 0.5;
+  // If it's a half day, always return 0.5 if it's on a valid working day
+  if (isHalfDay) {
+    return totalDays > 0 ? 0.5 : 0;
   }
 
   return totalDays;
