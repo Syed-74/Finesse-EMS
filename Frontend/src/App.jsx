@@ -7,6 +7,7 @@ import Leaves from "../src/pages/admin/Sidepages/Leaves";
 import Payroll from "../src/pages/admin/Sidepages/Payroll";
 import Reports from "../src/pages/admin/Sidepages/Reports";
 import DashboardLayout from "./layouts/DashboardLayout";
+import ShiftManagement from "./pages/admin/Sidepages/ShiftManagement";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
 import Settings from "./pages/admin/Sidepages/Settings";
 import EmployeePayroll from "./pages/employee/EmployeePayroll";
@@ -34,6 +35,7 @@ function App() {
           <Route path="/admin/payroll" element={<Payroll />} />
           <Route path="/admin/reports" element={<Reports />} />
           <Route path="/admin/settings" element={<Settings />} />
+          <Route path="/admin/shifts" element={<ShiftManagement />} />
           <Route path="/admin/communication" element={<Communication />} />
         </Route>
 

@@ -16,10 +16,13 @@ import {
   ChevronDown,
   LogIn,
   LogOut,
-  Loader2,
-  CalendarDays,
   Timer,
-  Activity
+  Activity,
+  Coffee,
+  History,
+  Send,
+  Loader2,
+  CalendarDays
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
 
@@ -36,6 +39,17 @@ const EmployeeAttendance = () => {
   const [message, setMessage] = useState("");
   const [selectedWorkLocation, setSelectedWorkLocation] = useState("Office");
   const [initialLoading, setInitialLoading] = useState(true);
+  const [shift, setShift] = useState(null);
+  const [todayLeave, setTodayLeave] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 🕒 Break & Regularize state
+  const [breakLoading, setBreakLoading] = useState(false);
+  const [showRegularizeModal, setShowRegularizeModal] = useState(false);
+  const [selectedRecordForRegularize, setSelectedRecordForRegularize] = useState(null);
+  const [regularizeReason, setRegularizeReason] = useState("");
+  const [requestedInTime, setRequestedInTime] = useState("");
+  const [requestedOutTime, setRequestedOutTime] = useState("");
 
   const token = localStorage.getItem("token");
   const employeeWorkLocation = admin?.workLocation?.toUpperCase?.() || "OFFICE";
@@ -61,7 +75,35 @@ const EmployeeAttendance = () => {
       setLocationError("Geolocation is not supported by your browser.");
     }
     fetchAttendance();
+    fetchShift();
+    fetchTodayLeave();
+
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
+
+  const fetchTodayLeave = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/leaveapplication/today", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTodayLeave(res.data.data);
+    } catch (err) {
+      console.error("Failed to fetch today's leave", err);
+    }
+  };
+
+  const fetchShift = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/shifts/my-shift", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Shift Data:", res.data);
+      setShift(res.data);
+    } catch (err) {
+      console.error("Failed to fetch shift", err);
+    }
+  };
 
   const fetchAttendance = async () => {
     try {
@@ -83,8 +125,30 @@ const EmployeeAttendance = () => {
   };
 
   const handlePunchIn = async () => {
+    if (!shift) return alert("No shift assigned. Please contact Admin.");
     if (!capturedImage) return alert("Please capture a selfie first.");
     if (!location) return alert("Waiting for GPS location — please enable GPS.");
+
+    // Local Shift Validation
+    const [h, m] = shift.startTime.split(":").map(Number);
+    const shiftStart = new Date();
+    shiftStart.setHours(h, m, 0, 0);
+
+    const allowedFrom = new Date(shiftStart);
+    allowedFrom.setMinutes(allowedFrom.getMinutes() - 30);
+
+    if (currentTime < allowedFrom) {
+      return alert(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    }
+
+    // Half Day Leave Check
+    if (todayLeave && todayLeave.type === "Half Day") {
+      const midTime = new Date(shiftStart);
+      midTime.setMinutes(midTime.getMinutes() + 270); // 4.5 hours
+      if (todayLeave.half === "First Half" && currentTime < midTime) {
+        return alert(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      }
+    }
 
     setLoading(true);
     setStatus("punching");
@@ -99,6 +163,7 @@ const EmployeeAttendance = () => {
       formData.append("selfie", file);
       formData.append("location", JSON.stringify(location));
       formData.append("workLocation", isHybrid ? selectedWorkLocation : "Office");
+      formData.append("shiftType", shift.shiftType);
 
       await axios.post("http://localhost:5000/api/attendance/punch-in", formData, {
         headers: {
@@ -111,10 +176,9 @@ const EmployeeAttendance = () => {
       setMessage("Punch In Successful");
       fetchAttendance();
     } catch (err) {
-      console.error(err);
+      console.error("Punch-In API Error:", err);
       setStatus("error");
       const errData = err.response?.data;
-      // Friendly message for IP restriction
       if (err.response?.status === 403 && errData?.code === "OFFICE_IP_REQUIRED") {
         setMessage(errData.message);
       } else {
@@ -138,7 +202,64 @@ const EmployeeAttendance = () => {
       fetchAttendance();
     } catch (err) {
       setStatus("error");
-      setMessage(err.response?.data?.message || "Punch Out Failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartBreak = async (type = "Lunch") => {
+    setBreakLoading(true);
+    try {
+      await axios.post(
+        "http://localhost:5000/api/attendance/start-break",
+        { type },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(`${type} started`);
+      fetchAttendance();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to start break");
+    } finally {
+      setBreakLoading(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    setBreakLoading(true);
+    try {
+      await axios.post(
+        "http://localhost:5000/api/attendance/end-break",
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage("Break ended");
+      fetchAttendance();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to end break");
+    } finally {
+      setBreakLoading(false);
+    }
+  };
+
+  const handleRequestRegularization = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(
+        "http://localhost:5000/api/attendance/regularize",
+        {
+          attendanceId: selectedRecordForRegularize._id,
+          requestedInTime,
+          requestedOutTime,
+          reason: regularizeReason
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("Regularization request submitted");
+      setShowRegularizeModal(false);
+      fetchAttendance();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to submit request");
     } finally {
       setLoading(false);
     }
@@ -150,6 +271,8 @@ const EmployeeAttendance = () => {
 
   const alreadyPunchedIn = !!todayRecord?.inTime;
   const alreadyPunchedOut = !!todayRecord?.outTime;
+  const activeBreak = todayRecord?.breaks?.find(b => !b.endTime);
+  const isOnBreak = !!activeBreak;
 
   const getNetworkBadge = (rec) => {
     const nt = rec?.deviceInfo?.networkType;
@@ -162,6 +285,16 @@ const EmployeeAttendance = () => {
     if (!mins) return "—";
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   };
+
+  if (admin?.role !== "employee") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] gap-4 text-slate-400 p-8 text-center">
+        <AlertCircle className="w-12 h-12 text-rose-500" />
+        <h2 className="text-xl font-black text-slate-900">Access Restricted</h2>
+        <p className="max-w-md text-sm font-medium">This terminal is for employees only. Admins can manage shifts and view records from the Admin Panel.</p>
+      </div>
+    );
+  }
 
   if (initialLoading) {
     return (
@@ -195,6 +328,14 @@ const EmployeeAttendance = () => {
                 <Activity className="w-4 h-4" />}
             {employeeWorkLocation} Mode
           </div>
+
+          {/* Shift Badge */}
+          {shift && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border bg-indigo-600 text-white border-indigo-700 shadow-lg shadow-indigo-100">
+              <Clock className="w-4 h-4" />
+              {shift.shiftType} ({shift.startTime} - {shift.endTime})
+            </div>
+          )}
         </div>
 
         {/* ─── Status Alert Banner ─── */}
@@ -207,6 +348,20 @@ const EmployeeAttendance = () => {
             <span>{message}</span>
           </div>
         )}
+
+        {/* ─── Today's Leave / Rule Warning ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {todayLeave && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm font-bold">
+              <CalendarDays className="w-5 h-5 shrink-0" />
+              Today: {todayLeave.type} ({todayLeave.half || "Approved"})
+            </div>
+          )}
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-sm font-bold shadow-lg">
+            <Shield className="w-5 h-5 shrink-0 text-indigo-400" />
+            Requirement: Please punch in within 4 hours of shift start to avoid Auto-Absent.
+          </div>
+        </div>
 
         {/* ─── GPS Error Banner ─── */}
         {locationError && (
@@ -371,30 +526,63 @@ const EmployeeAttendance = () => {
                       )}
 
                       {/* Action Buttons */}
-                      {!alreadyPunchedIn ? (
-                        <button
-                          onClick={handlePunchIn}
-                          disabled={loading || !location || !capturedImage}
-                          className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 shadow-lg
-                            ${loading || !location || !capturedImage
-                              ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                              : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 active:scale-95"}`}
-                        >
-                          {loading
-                            ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying...</>
-                            : <><LogIn className="w-5 h-5" /> Punch In</>}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={handlePunchOut}
-                          disabled={loading}
-                          className="w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-200 transition-all active:scale-95 flex items-center justify-center gap-2.5"
-                        >
-                          {loading
-                            ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
-                            : <><LogOut className="w-5 h-5" /> Punch Out</>}
-                        </button>
-                      )}
+                      <div className="flex flex-col gap-3">
+                        {!alreadyPunchedIn ? (
+                          <button
+                            onClick={handlePunchIn}
+                            disabled={loading || !location || !capturedImage || (todayLeave && todayLeave.type === "Full Day")}
+                            className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2.5 shadow-lg
+                              ${loading || !location || !capturedImage || (todayLeave && todayLeave.type === "Full Day")
+                                ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 active:scale-95"}`}
+                          >
+                            {loading
+                              ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying...</>
+                              : todayLeave && todayLeave.type === "Full Day"
+                                ? "On Approved Leave"
+                                : <><LogIn className="w-5 h-5" /> Punch In</>}
+                          </button>
+                        ) : alreadyPunchedIn && !alreadyPunchedOut ? (
+                          <div className="space-y-3">
+                            {/* Break Controls */}
+                            {!isOnBreak ? (
+                              <button
+                                onClick={() => handleStartBreak("Lunch")}
+                                disabled={breakLoading}
+                                className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-100 transition-all flex items-center justify-center gap-2.5"
+                              >
+                                {breakLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Coffee className="w-5 h-5" /> Start Break</>}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleEndBreak}
+                                disabled={breakLoading}
+                                className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2.5"
+                              >
+                                {breakLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Timer className="w-5 h-5 animate-pulse" /> End Break ({activeBreak.startTime})</>}
+                              </button>
+                            )}
+
+                            <button
+                              onClick={handlePunchOut}
+                              disabled={loading || isOnBreak}
+                              className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2.5
+                                ${loading || isOnBreak
+                                  ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                                  : "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200 active:scale-95"}`}
+                            >
+                              {loading
+                                ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                                : <><LogOut className="w-5 h-5" /> Punch Out</>}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+                            <p className="text-emerald-700 font-black uppercase text-xs tracking-widest">Attendance Recorded</p>
+                            <p className="text-xs text-emerald-600 mt-1">Great job! See you tomorrow.</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -435,6 +623,12 @@ const EmployeeAttendance = () => {
                       </div>
                       <span className="font-black text-slate-900">{formatDuration(todayRecord.totalWorkingMinutes)}</span>
                     </div>
+                    <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                      <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
+                        <Coffee className="w-4 h-4 text-amber-500" /> Break Total
+                      </div>
+                      <span className="font-black text-slate-900">{todayRecord.totalBreakMinutes || 0} min</span>
+                    </div>
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
                         <Wifi className="w-4 h-4 text-purple-500" /> Network
@@ -467,10 +661,10 @@ const EmployeeAttendance = () => {
               </div>
               <div className="p-5 grid grid-cols-2 gap-3">
                 {[
-                  { label: "Present", value: records.filter(r => r.status === "PRESENT").length, color: "text-emerald-600", bg: "bg-emerald-50" },
-                  { label: "Late", value: records.filter(r => r.lateByMinutes > 0).length, color: "text-amber-600", bg: "bg-amber-50" },
-                  { label: "Leave", value: records.filter(r => r.status === "LEAVE").length, color: "text-blue-600", bg: "bg-blue-50" },
-                  { label: "Absent", value: records.filter(r => r.status === "ABSENT").length, color: "text-rose-600", bg: "bg-rose-50" },
+                  { label: "Present", value: records.filter(r => r.status === "Present").length, color: "text-emerald-600", bg: "bg-emerald-50" },
+                  { label: "Late", value: records.filter(r => r.status === "Late").length, color: "text-amber-600", bg: "bg-amber-50" },
+                  { label: "Half Day", value: records.filter(r => r.status === "Half Day").length, color: "text-indigo-600", bg: "bg-indigo-50" },
+                  { label: "Absent", value: records.filter(r => r.status === "Absent").length, color: "text-rose-600", bg: "bg-rose-50" },
                 ].map((stat, i) => (
                   <div key={i} className={`${stat.bg} rounded-xl p-3 text-center`}>
                     <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
@@ -496,7 +690,7 @@ const EmployeeAttendance = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  {["Date", "In Time", "Out Time", "Duration", "Work Location", "Network", "Status"].map((h) => (
+                  {["Date", "In Time", "Out Time", "Duration", "Work Location", "Network", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       {h}
                     </th>
@@ -506,7 +700,7 @@ const EmployeeAttendance = () => {
               <tbody className="divide-y divide-slate-50">
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-16 text-center">
+                    <td colSpan="8" className="px-6 py-16 text-center">
                       <Activity className="w-10 h-10 mx-auto text-slate-200 mb-3" />
                       <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No attendance records found</p>
                     </td>
@@ -521,7 +715,7 @@ const EmployeeAttendance = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg font-mono font-bold text-xs">
-                            {rec.inTime}
+                            {rec.inTime || "—"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -545,18 +739,33 @@ const EmployeeAttendance = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border-2
-                            ${rec.status === "PRESENT" && rec.lateByMinutes > 0
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : rec.status === "PRESENT"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : rec.status === "ABSENT"
+                            ${rec.status === "Present"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : rec.status === "Late"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : rec.status === "Absent"
                                   ? "bg-red-50 text-red-700 border-red-200"
-                                  : rec.status === "LEAVE"
+                                  : rec.status === "Leave"
                                     ? "bg-blue-50 text-blue-700 border-blue-200"
-                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                                    : rec.status === "Half Day"
+                                      ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                      : "bg-slate-100 text-slate-600 border-slate-200"
                             }`}>
-                            {rec.status === "PRESENT" && rec.lateByMinutes > 0 ? "LATE" : rec.status}
+                            {rec.status}
                           </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => {
+                              setSelectedRecordForRegularize(rec);
+                              setShowRegularizeModal(true);
+                              setRequestedInTime(rec.inTime || "");
+                              setRequestedOutTime(rec.outTime || "");
+                            }}
+                            className="text-indigo-600 hover:text-indigo-800 font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5 p-2 bg-indigo-50 rounded-lg transition-colors border border-indigo-100 shadow-sm"
+                          >
+                            <History className="w-3.5 h-3.5" /> Correct
+                          </button>
                         </td>
                       </tr>
                     );
@@ -568,6 +777,75 @@ const EmployeeAttendance = () => {
         </div>
 
       </div>
+
+      {/* ── Regularization Modal ── */}
+      {showRegularizeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs flex items-center gap-2">
+                <Shield className="w-4 h-4 text-indigo-500" /> Request Correction
+              </h3>
+              <button onClick={() => setShowRegularizeModal(false)} className="text-slate-400 hover:text-slate-600 font-black italic">X</button>
+            </div>
+            <form onSubmit={handleRequestRegularization} className="p-6 space-y-4">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                Updating Record: <span className="text-indigo-600">{new Date(selectedRecordForRegularize.date).toLocaleDateString()}</span>
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1.5">New In Time</label>
+                  <input
+                    type="time"
+                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={requestedInTime}
+                    onChange={(e) => setRequestedInTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1.5">New Out Time</label>
+                  <input
+                    type="time"
+                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={requestedOutTime}
+                    onChange={(e) => setRequestedOutTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1.5">Reason for Request</label>
+                <textarea
+                  required
+                  rows="3"
+                  className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                  placeholder="e.g., Forgot to punch out, Device battery died..."
+                  value={regularizeReason}
+                  onChange={(e) => setRegularizeReason(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRegularizeModal(false)}
+                  className="flex-1 py-3 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Submit</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

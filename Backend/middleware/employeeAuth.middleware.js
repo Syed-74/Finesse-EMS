@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import Employee from "../models/Employee.model.js";
+import Employee from "../models/employee.model.js";
 import Admin from "../models/admin.model.js";
 
 export const protectEmployee = async (req, res, next) => {

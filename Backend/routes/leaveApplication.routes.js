@@ -6,7 +6,8 @@ import {
    getAllLeaveRequests,
    updateLeaveStatus,
    approveLeave,
-   rejectLeave
+   rejectLeave,
+   getTodayLeave
 } from "../controllers/leaveApplication.controller.js";
 
 import upload from "../middleware/upload.middleware.js";
@@ -28,6 +29,7 @@ router.post("/", protectEmployee, upload.single("attachment"), applyLeave);
 ============================== */
 router.get("/employee/:employeeId", protectAll, getEmployeeLeaves);
 router.get("/my", protectEmployee, getMyLeaves);
+router.get("/today", protectEmployee, getTodayLeave);
 
 /* ==============================
    GET ALL LEAVE REQUESTS (ADMIN/SELF)

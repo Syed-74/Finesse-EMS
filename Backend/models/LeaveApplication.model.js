@@ -66,6 +66,17 @@ const LeaveApplicationSchema = new mongoose.Schema(
       default: "Pending",
     },
 
+    type: {
+      type: String,
+      enum: ["Full Day", "Half Day"],
+      default: "Full Day"
+    },
+
+    half: {
+      type: String,
+      enum: ["First Half", "Second Half"],
+    },
+
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

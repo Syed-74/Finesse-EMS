@@ -15,15 +15,15 @@ const attendanceSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PRESENT", "ABSENT", "LEAVE", "HALF_DAY", "HOLIDAY", "WFH"],
-      default: "PRESENT"
+      enum: ["Present", "Late", "Absent", "Half Day", "Leave", "Holiday", "WFH"],
+      default: "Present"
     },
 
     // ⏰ Punch times
     inTime: {
       type: String, // "09:05"
       required: function () {
-        return this.status === "PRESENT" || this.status === "HALF_DAY";
+        return this.status === "Present" || this.status === "Half Day";
       }
     },
 
@@ -37,7 +37,16 @@ const attendanceSchema = new mongoose.Schema(
       default: 0
     },
 
-    breakMinutes: {
+    breaks: [
+      {
+        startTime: String, // "13:00"
+        endTime: String,   // "14:00"
+        duration: Number,  // in minutes
+        type: { type: String, enum: ["Lunch", "Tea", "Medical", "Other"], default: "Lunch" }
+      }
+    ],
+
+    totalBreakMinutes: {
       type: Number,
       default: 0
     },
@@ -50,6 +59,16 @@ const attendanceSchema = new mongoose.Schema(
     overtimeMinutes: {
       type: Number,
       default: 0
+    },
+
+    // 🛠️ Regularization & Audit
+    isRegularized: {
+      type: Boolean,
+      default: false
+    },
+
+    originalStatus: {
+      type: String
     },
 
     // 🏢 Work info
@@ -90,6 +109,16 @@ const attendanceSchema = new mongoose.Schema(
     remarks: {
       type: String,
       trim: true
+    },
+
+    shiftType: {
+      type: String,
+      enum: ["Morning", "Afternoon", "Night"]
+    },
+
+    autoMarked: {
+      type: Boolean,
+      default: false
     }
   },
   { timestamps: true }

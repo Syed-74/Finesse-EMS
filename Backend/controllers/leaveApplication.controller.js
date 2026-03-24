@@ -120,6 +120,8 @@ const leave = await LeaveApplication.create({
   startDate,
   endDate,
   totalDays,
+  type: isHalfDay ? "Half Day" : "Full Day",
+  half: isHalfDay ? req.body.half : undefined,
   employeeComment,
   attachment: req.file ? req.file.filename : null,
 });
@@ -148,6 +150,32 @@ export const getMyLeaves = async (req, res) => {
     res.status(200).json({
       success: true,
       data: leaves,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// GET /api/leaveapplication/today
+export const getTodayLeave = async (req, res) => {
+  try {
+    const employeeId = req.employee._id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const leave = await LeaveApplication.findOne({
+      employeeId,
+      startDate: { $lte: today },
+      endDate: { $gte: today },
+      status: "Approved",
+    });
+
+    res.status(200).json({
+      success: true,
+      data: leave,
     });
   } catch (error) {
     res.status(500).json({

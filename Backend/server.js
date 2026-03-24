@@ -12,9 +12,12 @@ import leavePolicyRoutes from "./routes/leavePolicy.routes.js";
 import leaveBalanceRoutes from "./routes/LeaveBalance.routes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import reportRoutes from "./routes/report.routes.js";
+import shiftRoutes from "./routes/shift.routes.js";
+import markAbsentCron from "./services/attendanceCron.js";
 
 dotenv.config();
 connectDB();
+markAbsentCron();
 
 const app = express();
 
@@ -37,6 +40,7 @@ app.use("/api/leavepolicy", leavePolicyRoutes);
 app.use("/api/leavebalance", leaveBalanceRoutes); 
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/shifts", shiftRoutes);
 
 // Static uploads
 app.use("/uploads", express.static("uploads"));

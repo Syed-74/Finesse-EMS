@@ -131,8 +131,13 @@ const employeeSchema = new mongoose.Schema(
 
     shift: {
       type: String,
-      enum: ["DAY", "NIGHT", "CUSTOM"],
+      enum: ["DAY", "NIGHT", "CUSTOM", "Morning", "Afternoon", "Night"],
       default: "DAY",
+    },
+
+    shiftId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shift",
     },
 
     /* =========================

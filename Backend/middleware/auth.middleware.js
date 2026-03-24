@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
-import Employee from "../models/Employee.model.js";
+import Employee from "../models/employee.model.js";
 
 export const protectAll = async (req, res, next) => {
   try {

@@ -150,6 +150,8 @@ const EmployeeLeaves = () => {
     endDate: "",
     reason: "",
     attachment: null,
+    type: "Full Day",
+    half: "First Half"
   });
   const [submitLoading, setSubmitLoading] = useState(false);
   const [calculatedDays, setCalculatedDays] = useState(0);
@@ -243,9 +245,8 @@ const EmployeeLeaves = () => {
   const calculateDuration = (start, end) => {
     if (!start || !end) return 0;
     const startDate = parseISO(start);
-    const endDate = parseISO(end);
-    if (endDate < startDate) return 0;
-
+    if (formData.type === 'Half Day') return 0.5;
+    
     const days = eachDayOfInterval({ start: startDate, end: endDate });
     const workingDays = days.filter(day => {
       if (isWeekend(day)) return false;
@@ -260,7 +261,7 @@ const EmployeeLeaves = () => {
   useEffect(() => {
     const days = calculateDuration(formData.startDate, formData.endDate);
     setCalculatedDays(days);
-  }, [formData.startDate, formData.endDate, holidays]);
+  }, [formData.startDate, formData.endDate, holidays, formData.type]);
 
   const handleApply = async (e) => {
     e.preventDefault();
@@ -289,6 +290,10 @@ const EmployeeLeaves = () => {
       submitData.append("startDate", formData.startDate);
       submitData.append("endDate", formData.endDate);
       submitData.append("employeeComment", formData.reason);
+      submitData.append("type", formData.type);
+      if (formData.type === 'Half Day') {
+         submitData.append("half", formData.half);
+      }
       if (formData.attachment) {
         submitData.append("attachment", formData.attachment);
       }
@@ -297,7 +302,7 @@ const EmployeeLeaves = () => {
         headers: { "Content-Type": "multipart/form-data" }
       });
       toast.success("Leave request submitted successfully.");
-      setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "", attachment: null });
+      setFormData({ leaveType: Object.keys(balance)[0] || "", startDate: "", endDate: "", reason: "", attachment: null, type: "Full Day", half: "First Half" });
       setActiveTab("history");
       fetchData();
     } catch (error) {
@@ -459,6 +464,41 @@ const EmployeeLeaves = () => {
                       <p className="text-[10px] text-red-500 font-bold uppercase mt-1">End date cannot be before start date</p>
                     )}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 font-bold uppercase text-[10px] tracking-wider">Application Type</label>
+                    <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                      {["Full Day", "Half Day"].map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, type: t, endDate: t === 'Half Day' ? formData.startDate : formData.endDate })}
+                          className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${formData.type === t ? "bg-white text-indigo-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {formData.type === "Half Day" && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 font-bold uppercase text-[10px] tracking-wider">Select Half</label>
+                      <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                        {["First Half", "Second Half"].map(h => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, half: h })}
+                            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.half === h ? "bg-white text-amber-600 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                          >
+                            {h}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Smart Duration Display */}

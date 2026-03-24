@@ -112,12 +112,17 @@ const LeaveRequestsTable = () => {
                                     </div>
                                 </td>
                                 <td className="p-6">
-                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${req.leaveType === 'SICK' ? 'bg-red-50 text-red-600' :
-                                        req.leaveType === 'CASUAL' ? 'bg-blue-50 text-blue-600' :
-                                            'bg-indigo-50 text-indigo-600'
-                                        }`}>
-                                        {req.leaveType}
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${req.leaveType === 'SICK' ? 'bg-red-50 text-red-600' :
+                                            req.leaveType === 'CASUAL' ? 'bg-blue-50 text-blue-600' :
+                                                'bg-indigo-50 text-indigo-600'
+                                            }`}>
+                                            {req.leaveType}
+                                        </span>
+                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg w-fit ${req.type === 'Half Day' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            {req.type || 'Full Day'}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td className="p-6">
                                     <div className="flex items-center gap-2 text-gray-700">
@@ -125,8 +130,8 @@ const LeaveRequestsTable = () => {
                                         <span className="text-sm font-bold">
                                             {format(parseISO(req.startDate), "MMM d")} - {format(parseISO(req.endDate), "MMM d, yyyy")}
                                         </span>
-                                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg ml-2">
-                                            {req.totalDays} Days
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ml-2 ${req.type === 'Half Day' ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                            {req.totalDays} Days {req.type === 'Half Day' ? `(${req.half})` : ''}
                                         </span>
                                     </div>
                                 </td>
