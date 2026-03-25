@@ -71,6 +71,14 @@ export const loginAdmin = async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
+    if (!admin.isActive && admin.status === "PENDING") {
+      return res.status(403).json({ message: "Your account is pending approval by an administrator." });
+    }
+    if (admin.status === "REJECTED") {
+        return res.status(403).json({ 
+            message: `Your account registration was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}` 
+        });
+    }
     if (!admin.isActive) {
       return res.status(403).json({ message: "Account is inactive" });
     }
@@ -195,7 +203,22 @@ export const ssoLogin = async (req, res) => {
     const admin = await authService.syncAdminRecord(graphData, profileImageUrl);
 
     // 4. Sync Employee record
-    await employeeService.upsertEmployeeFromGraph(graphData, profileImageUrl);
+    const employee = await employeeService.upsertEmployeeFromGraph(graphData, profileImageUrl);
+
+    // Check Approval Status
+    if (employee.status === "PENDING") {
+        return res.status(403).json({ 
+            message: "Your registration is successful! Your account is currently pending approval by an administrator." 
+        });
+    }
+    if (employee.status === "REJECTED") {
+        return res.status(403).json({ 
+            message: `Your account registration was rejected. Reason: ${employee.rejectionReason || 'No reason provided.'}` 
+        });
+    }
+    if (!employee.isActive) {
+        return res.status(403).json({ message: "Your account is currently inactive. Please contact your administrator." });
+    }
 
     // 5. Generate Token
     const token = authService.generateToken(admin);

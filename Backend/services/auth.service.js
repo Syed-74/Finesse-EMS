@@ -43,14 +43,19 @@ class AuthService {
                 password: '',
                 ssoProvider: 'microsoft',
                 ssoId: microsoftId,
-                isActive: true,
+                isActive: false,
+                status: "PENDING",
                 role: "employee", // Default role for new SSO registrations
                 profileImage: profileImageUrl || "",
                 lastGraphSync: new Date(),
                 employeeId: employee?._id || null
             });
         } else {
-            admin.isActive = true;
+            // Keep existing isActive and status unless it's a legacy record with no status
+            if (!admin.status) {
+                admin.status = "APPROVED";
+                admin.isActive = true;
+            }
             admin.firstName = firstName;
             admin.lastName = lastName;
             admin.ssoProvider = 'microsoft';

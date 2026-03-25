@@ -43,9 +43,12 @@ export default function Employees() {
 
   // Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("Active"); // "Active" or "Pending"
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [confirmAction, setConfirmAction] = useState({ type: "", action: () => { } });
 
   const { admin: authAdmin, loading: authLoading } = useAuth();
@@ -60,6 +63,7 @@ export default function Employees() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
+      // Fetch all employees; we'll filter by activeTab in useMemo
       const res = await axios.get(API_URL);
       setEmployees(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -73,6 +77,13 @@ export default function Employees() {
   const filteredEmployees = useMemo(() => {
     let result = [...employees];
 
+    // Filter by tab first
+    if (activeTab === "Active") {
+        result = result.filter(e => e.isActive && e.status === "APPROVED");
+    } else if (activeTab === "Pending") {
+        result = result.filter(e => e.status === "PENDING" || e.status === "REJECTED");
+    }
+
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter(e =>
@@ -83,9 +94,13 @@ export default function Employees() {
     }
 
     if (statusFilter !== "All") {
-      result = result.filter(e =>
-        statusFilter === "Active" ? e.isActive : !e.isActive
-      );
+      result = result.filter(e => {
+        if (statusFilter === "Active") return e.isActive;
+        if (statusFilter === "Inactive") return !e.isActive;
+        if (statusFilter === "Pending") return e.status === "PENDING";
+        if (statusFilter === "Rejected") return e.status === "REJECTED";
+        return true;
+      });
     }
 
     if (roleFilter !== "All") {
@@ -103,7 +118,14 @@ export default function Employees() {
     }
 
     return result;
-  }, [employees, searchTerm, statusFilter, roleFilter, sortConfig]);
+  }, [employees, searchTerm, statusFilter, roleFilter, sortConfig, activeTab]);
+
+  const stats = useMemo(() => {
+    const active = employees.filter(e => e.isActive && e.status === "APPROVED").length;
+    const pending = employees.filter(e => e.status === "PENDING").length;
+    const rejected = employees.filter(e => e.status === "REJECTED").length;
+    return { active, pending, rejected };
+  }, [employees]);
 
   // Validation
   const validateCurrentStep = () => {
@@ -177,6 +199,40 @@ export default function Employees() {
     }
   };
 
+  const handleApprove = async (id) => {
+    try {
+        await axios.put(`${API_URL}/${id}/approve`);
+        fetchEmployees();
+        setIsConfirmOpen(false);
+    } catch (error) {
+        console.error("Error approving employee", error);
+        alert(error.response?.data?.message || "Failed to approve employee");
+    }
+  };
+
+  const handleReject = async (id, reason) => {
+    try {
+        await axios.put(`${API_URL}/${id}/reject`, { reason });
+        fetchEmployees();
+        setIsConfirmOpen(false);
+        setRejectionReason("");
+    } catch (error) {
+        console.error("Error rejecting employee", error);
+        alert(error.response?.data?.message || "Failed to reject employee");
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    try {
+        await axios.post(`${API_URL}/bulk-approve`, { ids: selectedEmployees });
+        fetchEmployees();
+        setSelectedEmployees([]);
+        setIsConfirmOpen(false);
+    } catch (error) {
+        console.error("Bulk approval error", error);
+    }
+  };
+
   const openEdit = (emp) => {
     // Populate with defaults to avoid null issues
     setCurrentEmployee({
@@ -220,6 +276,33 @@ export default function Employees() {
         title: `${newStatus} Account`,
         message: `Are you sure you want to ${newStatus.toLowerCase()} access for ${emp.firstName}?`,
         action: () => handleToggleStatus(emp)
+      });
+    } else if (type === "approve") {
+      setConfirmAction({
+        type: "approve",
+        title: "Approve Employee",
+        message: `Allow ${emp.firstName} to access the system?`,
+        action: () => handleApprove(emp._id || emp.employeeId)
+      });
+    } else if (type === "reject") {
+      setConfirmAction({
+        type: "reject",
+        title: "Reject Registration",
+        message: `Deny access for ${emp.firstName}? Please provide a reason.`,
+        action: () => {
+            if (!rejectionReason.trim()) {
+                alert("Please provide a rejection reason.");
+                return;
+            }
+            handleReject(emp._id || emp.employeeId, rejectionReason);
+        }
+      });
+    } else if (type === "bulk-approve") {
+      setConfirmAction({
+        type: "approve",
+        title: "Bulk Approval",
+        message: `Are you sure you want to approve ${selectedEmployees.length} selected employees?`,
+        action: handleBulkApprove
       });
     }
     setIsConfirmOpen(true);
@@ -501,12 +584,32 @@ export default function Employees() {
     }
   };
 
-  const StatusBadge = ({ active }) => (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-      }`}>
-      {active ? 'Active' : 'Inactive'}
-    </span>
-  );
+  const StatusBadge = ({ emp }) => {
+    const isNew = new Date(emp.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    if (emp.status === "PENDING") {
+        return (
+            <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    Pending
+                </span>
+                {isNew && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">New</span>}
+            </div>
+        );
+    }
+    if (emp.status === "REJECTED") {
+        return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                Rejected
+            </span>
+        );
+    }
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${emp.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+            {emp.isActive ? 'Active' : 'Inactive'}
+        </span>
+    );
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -518,6 +621,21 @@ export default function Employees() {
           <p className="text-gray-500 mt-1">Manage system access and employee details</p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex bg-gray-100 p-1 rounded-xl mr-4">
+            <button 
+                onClick={() => { setActiveTab("Active"); setSelectedEmployees([]); }} 
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "Active" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Active ({stats.active})
+            </button>
+            <button 
+                onClick={() => { setActiveTab("Pending"); setSelectedEmployees([]); }} 
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === "Pending" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                New Registrations ({stats.pending})
+                {stats.pending > 0 && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
+            </button>
+          </div>
           <button onClick={fetchEmployees} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
             <Filter className="w-5 h-5" />
           </button>
@@ -526,6 +644,28 @@ export default function Employees() {
           </button>
         </div>
       </div>
+
+      {activeTab === "Pending" && stats.pending > 0 && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between animate-in slide-in-from-top-4">
+              <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-900">{stats.pending} registrations waiting for approval</h4>
+                    <p className="text-xs text-blue-700">New employees cannot log in until an administrator approves their access.</p>
+                  </div>
+              </div>
+              {selectedEmployees.length > 0 && (
+                  <button 
+                    onClick={() => confirmActionModal("bulk-approve")}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-all flex items-center gap-2"
+                  >
+                    Approve Selected ({selectedEmployees.length})
+                  </button>
+              )}
+          </div>
+      )}
 
       {/* Filters & Search */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -562,6 +702,22 @@ export default function Employees() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                {activeTab === "Pending" && (
+                    <th className="px-6 py-4 w-10">
+                        <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" 
+                            checked={selectedEmployees.length === filteredEmployees.length && filteredEmployees.length > 0}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    setSelectedEmployees(filteredEmployees.map(emp => emp._id || emp.employeeId));
+                                } else {
+                                    setSelectedEmployees([]);
+                                }
+                            }}
+                        />
+                    </th>
+                )}
                 <th className="px-6 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('firstName')}>
                   <div className="flex items-center gap-2">Name {sortConfig.key === 'firstName' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}</div>
                 </th>
@@ -578,7 +734,24 @@ export default function Employees() {
                 <tr><td colSpan="5" className="px-6 py-8 text-center text-gray-500">No employees found.</td></tr>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp._id || emp.employeeId} className="hover:bg-gray-50 transition-colors">
+                  <tr key={emp._id || emp.employeeId} className={`hover:bg-gray-50 transition-colors ${selectedEmployees.includes(emp._id || emp.employeeId) ? 'bg-blue-50/50' : ''}`}>
+                    {activeTab === "Pending" && (
+                        <td className="px-6 py-4">
+                            <input 
+                                type="checkbox" 
+                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" 
+                                checked={selectedEmployees.includes(emp._id || emp.employeeId)}
+                                onChange={(e) => {
+                                    const id = emp._id || emp.employeeId;
+                                    if (e.target.checked) {
+                                        setSelectedEmployees([...selectedEmployees, id]);
+                                    } else {
+                                        setSelectedEmployees(selectedEmployees.filter(sid => sid !== id));
+                                    }
+                                }}
+                            />
+                        </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <ProfileAvatar user={emp} className="w-10 h-10 shrink-0" />
@@ -593,12 +766,21 @@ export default function Employees() {
                       <div className="font-medium text-gray-900">{emp.designation || 'N/A'}</div>
                       <div className="text-xs text-gray-500">{emp.department || 'General'}</div>
                     </td>
-                    <td className="px-6 py-4"><StatusBadge active={emp.isActive} /></td>
+                    <td className="px-6 py-4"><StatusBadge emp={emp} /></td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openEdit(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"><Edit3 className="w-4 h-4" /></button>
-                        <button onClick={() => confirmActionModal("status", emp)} className={`p-1.5 rounded-md ${emp.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}>{emp.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}</button>
-                        <button onClick={() => confirmActionModal("delete", emp)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"><Trash2 className="w-4 h-4" /></button>
+                        {emp.status === "PENDING" ? (
+                            <>
+                                <button onClick={() => confirmActionModal("approve", emp)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md" title="Approve"><UserCheck className="w-5 h-5" /></button>
+                                <button onClick={() => confirmActionModal("reject", emp)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Reject"><UserX className="w-5 h-5" /></button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => openEdit(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"><Edit3 className="w-4 h-4" /></button>
+                                <button onClick={() => confirmActionModal("status", emp)} className={`p-1.5 rounded-md ${emp.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}>{emp.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}</button>
+                                <button onClick={() => confirmActionModal("delete", emp)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"><Trash2 className="w-4 h-4" /></button>
+                            </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -615,25 +797,49 @@ export default function Employees() {
       {/* Mobile Cards Section */}
       <div className="md:hidden space-y-4">
         {filteredEmployees.map((emp) => (
-          <div key={emp._id || emp.employeeId} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+          <div key={emp._id || emp.employeeId} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3 ${selectedEmployees.includes(emp._id || emp.employeeId) ? 'border-blue-500 bg-blue-50/30' : ''}`}>
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
+                {activeTab === "Pending" && (
+                    <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" 
+                        checked={selectedEmployees.includes(emp._id || emp.employeeId)}
+                        onChange={(e) => {
+                            const id = emp._id || emp.employeeId;
+                            if (e.target.checked) {
+                                setSelectedEmployees([...selectedEmployees, id]);
+                            } else {
+                                setSelectedEmployees(selectedEmployees.filter(sid => sid !== id));
+                            }
+                        }}
+                    />
+                )}
                 <ProfileAvatar user={emp} className="w-10 h-10 shrink-0" />
                 <div>
                   <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
                   <div className="text-xs text-gray-500">{emp.email}</div>
                 </div>
               </div>
-              <StatusBadge active={emp.isActive} />
+              <StatusBadge emp={emp} />
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div><span className="text-gray-500 text-xs uppercase">Role</span><p className="font-medium text-gray-800">{emp.designation || '-'}</p></div>
               <div><span className="text-gray-500 text-xs uppercase">Dept</span><p className="font-medium text-gray-800">{emp.department || '-'}</p></div>
             </div>
             <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
-              <button onClick={() => openEdit(emp)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded text-sm font-medium">Edit</button>
-              <button onClick={() => confirmActionModal("status", emp)} className={`flex-1 py-1.5 text-sm font-medium rounded ${emp.isActive ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'}`}>{emp.isActive ? "Deactivate" : "Activate"}</button>
-              <button onClick={() => confirmActionModal("delete", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-medium">Delete</button>
+              {emp.status === "PENDING" ? (
+                  <>
+                    <button onClick={() => confirmActionModal("approve", emp)} className="flex-1 py-1.5 text-green-600 bg-green-50 rounded text-sm font-bold">Approve</button>
+                    <button onClick={() => confirmActionModal("reject", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-bold">Reject</button>
+                  </>
+              ) : (
+                  <>
+                    <button onClick={() => openEdit(emp)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded text-sm font-medium">Edit</button>
+                    <button onClick={() => confirmActionModal("status", emp)} className={`flex-1 py-1.5 text-sm font-medium rounded ${emp.isActive ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'}`}>{emp.isActive ? "Deactivate" : "Activate"}</button>
+                    <button onClick={() => confirmActionModal("delete", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-medium">Delete</button>
+                  </>
+              )}
             </div>
           </div>
         ))}
@@ -728,8 +934,12 @@ export default function Employees() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsConfirmOpen(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto text-red-600">
-              {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6" /> : <UserX className="w-6 h-6" />}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
+                confirmAction.type === 'delete' || confirmAction.type === 'reject' ? 'bg-red-100 text-red-600' : 
+                confirmAction.type === 'approve' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
+            }`}>
+              {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6" /> : 
+               confirmAction.type === 'approve' ? <UserCheck className="w-6 h-6" /> : <UserX className="w-6 h-6" />}
             </div>
 
             <div className="text-center">
@@ -737,9 +947,25 @@ export default function Employees() {
               <p className="text-sm text-gray-500 mt-2">{confirmAction.message}</p>
             </div>
 
+            {confirmAction.type === 'reject' && (
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Rejection Reason</label>
+                    <textarea 
+                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none"
+                        rows="3"
+                        placeholder="e.g. Incomplete documentation, invalid email..."
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                    />
+                </div>
+            )}
+
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setIsConfirmOpen(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-              <button onClick={confirmAction.action} className={`flex-1 px-4 py-2 text-white rounded-lg font-medium shadow-sm ${confirmAction.type === 'delete' ? 'bg-red-600' : 'bg-orange-600'}`}>Confirm</button>
+              <button onClick={() => { setIsConfirmOpen(false); setRejectionReason(""); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
+              <button onClick={confirmAction.action} className={`flex-1 px-4 py-2 text-white rounded-lg font-medium shadow-sm ${
+                  confirmAction.type === 'delete' || confirmAction.type === 'reject' ? 'bg-red-600 hover:bg-red-700' : 
+                  confirmAction.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'
+              }`}>Confirm</button>
             </div>
           </div>
         </div>

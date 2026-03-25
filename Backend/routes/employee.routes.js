@@ -7,6 +7,9 @@ import {
     deleteEmployee,
     getEmployeeProfile,
     updateEmployeeProfileImage,
+    approveEmployee,
+    rejectEmployee,
+    bulkApproveEmployees,
 } from "../controllers/employee.controllers.js";
 
 import { protectAdmin } from "../middleware/adminAuth.middleware.js";
@@ -32,6 +35,11 @@ router.get("/", protectAdmin, getAllEmployees);
 router.get("/:id", protectAdmin, getEmployeeById);
 router.put("/:id", protectAdmin, updateEmployee);
 router.delete("/:id", protectAdmin, deleteEmployee);
+
+// Approval Workflow
+router.put("/:id/approve", protectAdmin, approveEmployee);
+router.put("/:id/reject", protectAdmin, rejectEmployee);
+router.post("/bulk-approve", protectAdmin, bulkApproveEmployees);
 
 
 export default router;

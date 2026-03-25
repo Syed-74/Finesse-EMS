@@ -64,7 +64,26 @@ const employeeSchema = new mongoose.Schema(
 
     isActive: {
       type: Boolean,
-      default: true,
+      default: false,
+    },
+
+    status: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: "PENDING",
+    },
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+    },
+
+    approvedAt: {
+      type: Date,
+    },
+
+    rejectionReason: {
+      type: String,
     },
 
     lastLogin: {

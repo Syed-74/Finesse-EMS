@@ -62,7 +62,6 @@ class EmployeeService {
             city: city || "",
             state: state || "",
             country: country || "",
-            isActive: true,
             lastGraphSync: new Date()
         };
 
@@ -101,6 +100,8 @@ class EmployeeService {
                 basicSalary: 0,
                 annualSalary: 0
             },
+            status: "PENDING",
+            isActive: false,
             workLocation: "OFFICE",
             shift: "DAY"
         });
