@@ -10,11 +10,49 @@ import AuditLog from "../models/auditLog.model.js";
 ========================= */
 // ✅ Add more IPs here for scalability (supports IPv4 + IPv6-mapped)
 const allowedOfficeIPs = [
-  "192.168.29.24",
-  "::ffff:192.168.29.24", // IPv6-mapped IPv4
+  "192.168.29.91",
+  "::ffff:192.168.29.91", // IPv6-mapped IPv4
   "::1",                  // localhost (dev)
   "127.0.0.1"             // localhost (dev)
 ];
+
+/**
+ * Helper to validate if the current request is on the authorized office network.
+ * Used for OFFICE mode and HYBRID (on office days).
+ */
+function validateOfficeNetwork(req, employeeProfile) {
+  const rawIP = getClientIP(req);
+  const clientIP = normalizeIP(rawIP);
+  const isOfficeIP = allowedOfficeIPs.includes(clientIP);
+
+  const employeeWorkLocation = employeeProfile.workLocation?.toUpperCase() || "OFFICE";
+  const todayDay = new Date().toLocaleString("en-US", { weekday: "long" }).toUpperCase();
+
+  let effectiveWorkMode = "REMOTE"; 
+  if (employeeWorkLocation === "OFFICE") {
+    effectiveWorkMode = "OFFICE";
+  } else if (employeeWorkLocation === "HYBRID") {
+    const isOfficeDay = (employeeProfile.officeDays || []).some(
+      day => day.toUpperCase() === todayDay
+    );
+    effectiveWorkMode = isOfficeDay ? "OFFICE" : "REMOTE";
+  }
+
+  if (effectiveWorkMode === "OFFICE" && !isOfficeIP) {
+    return {
+      isValid: false,
+      clientIP,
+      message: `Onsite attendance requires Office WiFi. Your current IP (${clientIP}) is not authorized.`
+    };
+  }
+
+  return { 
+    isValid: true, 
+    clientIP, 
+    networkType: isOfficeIP ? "Office" : "Remote",
+    effectiveWorkMode 
+  };
+}
 
 /**
  * Normalize IPv6-mapped IPv4 addresses to plain IPv4.
@@ -46,70 +84,135 @@ function getClientIP(req) {
 export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
-    const today = new Date();
+   const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // 0. Fetch Employee with Shift
     let employeeProfile = await Employee.findById(employeeId).populate("shiftId");
     
     if (!employeeProfile) {
-      console.log("Error: Employee profile not found", employeeId);
       return res.status(404).json({ message: "Employee profile not found" });
     }
 
-    if (!employeeProfile.shiftId) {
-      let searchType = employeeProfile.shift || "Morning";
-      if (searchType === "DAY") searchType = "Morning";
-      if (searchType === "NIGHT") searchType = "Night";
-
-      const fallbackShift = await Shift.findOne({ shiftType: searchType });
-      if (fallbackShift) {
-        employeeProfile.shiftId = fallbackShift;
-        console.log(`Found fallback '${searchType}' shift. Using it for this session.`);
-      } else {
-        // Final attempt: get any shift
-        const anyShift = await Shift.findOne();
-        if (anyShift) {
-          employeeProfile.shiftId = anyShift;
-          console.log("Using first available shift as final fallback.");
-        } else {
-          console.log("Error: No shifts found in database at all.");
-          return res.status(400).json({ message: "No shifts configured in system. Please contact Admin." });
-        }
-      }
-    }
-
-    const shift = employeeProfile.shiftId;
     const now = new Date();
     const currentTimeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-
     // 1. Check existing punch
-    const existing = await Attendance.findOne({
+    let existing = await Attendance.findOne({
       employee: employeeId,
       date: today
     });
 
     if (existing) {
-      console.log("Error: Already punched in for today", employeeId);
-      return res.status(400).json({ message: "Already punched in today" });
+      // If it's an auto-marked "Absent" or "Leave" record, we allow "overwriting" it with a real punch-in
+      if (existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
+        console.log(`Overwriting auto-marked ${existing.status} record for ${employeeProfile.email}`);
+        // We will update this record later instead of creating a new one
+      } else {
+        return res.status(400).json({ message: "Already punched in today" });
+      }
     }
 
-    // 2. Shift Timing Logic
-    const [startH, startM] = shift.startTime.split(":").map(Number);
-    const shiftStartToday = new Date(today);
-    shiftStartToday.setHours(startH, startM, 0, 0);
+    // --- 🛠️ Robust Shift Discovery Logic ---
+    let shift = employeeProfile.shiftId;
 
-    const checkInAllowedFrom = new Date(shiftStartToday);
-    checkInAllowedFrom.setMinutes(checkInAllowedFrom.getMinutes() - 30);
+    // Fallback if shiftId is missing (legacy or unassigned)
+    if (!shift) {
+      console.log(`No shiftId for ${employeeProfile.email}, attempting fallback using shift string: ${employeeProfile.shift}`);
+      let searchType = employeeProfile.shift || "Morning";
+      if (searchType === "DAY") searchType = "Morning";
+      if (searchType === "NIGHT") searchType = "Night";
 
-    if (now < checkInAllowedFrom) {
-      console.log("Error: Early punch-in attempt", { now: currentTimeStr, allowedFrom: checkInAllowedFrom.toLocaleTimeString() });
+      shift = await Shift.findOne({ shiftType: searchType });
+      
+      if (!shift) {
+        // Final fallback: any shift
+        shift = await Shift.findOne();
+      }
+
+      if (!shift) {
+        return res.status(400).json({ message: "No shift configuration found in system. Please contact Admin." });
+      }
+    }
+
+    // --- 🛠️ Robust Shift Discovery Logic ---
+    const parseStartTime = (timeStr) => {
+      if (!timeStr) return { h: 9, m: 0 };
+      // Handle "13:00" or "01:00 PM"
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      if (!match) return { h: 9, m: 0 };
+      let h = parseInt(match[1]);
+      const m = parseInt(match[2]);
+      const ampm = match[3]?.toUpperCase();
+      if (ampm === "PM" && h < 12) h += 12;
+      if (ampm === "AM" && h === 12) h = 0;
+      return { h, m };
+    };
+
+    const getShiftInstance = (baseDate, startTimeStr) => {
+      const { h, m } = parseStartTime(startTimeStr);
+      const d = new Date(baseDate);
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Candidates: yesterday's shift and today's shift
+    const candidates = [
+      getShiftInstance(yesterday, shift.startTime),
+      getShiftInstance(today, shift.startTime)
+    ];
+
+    // Find the best fit: The shift that started most recently but no more than 12h ago, 
+    // OR the one starting in the next 30 mins.
+    let bestShiftStart = null;
+    const EARLY_WINDOW_MS = 30 * 60 * 1000;
+    const LATE_WINDOW_MS = 12 * 60 * 60 * 1000; // Allow punching in up to 12h late for night shifts
+
+    for (const start of candidates) {
+      const diff = now - start;
+      if (diff >= -EARLY_WINDOW_MS && diff <= LATE_WINDOW_MS) {
+        bestShiftStart = start;
+        break;
+      }
+    }
+ 
+    if (!bestShiftStart) {
+     // If no candidate fits, it means they are either way too early for today's shift 
+      // or way too late for yesterday's/today's.
+      const todayShift = getShiftInstance(today, shift.startTime);
+      const allowedFrom = new Date(todayShift.getTime() - EARLY_WINDOW_MS);
+      
+      if (now < allowedFrom) {
+        return res.status(400).json({ 
+          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}` 
+        });
+      }
+
       return res.status(400).json({ 
-        message: `Check-in allowed only 30 minutes before shift start (${shift.startTime})` 
+        message: `Outside valid shift window. Shift starts at ${shift.startTime}.` 
       });
     }
 
-    // 3. Half Day Leave Check
+    const effectiveShiftStart = bestShiftStart;
+    
+    // 3. Status Determination (Late/Present)
+    let attendanceStatus = "Present";
+    const lateThreshold = new Date(effectiveShiftStart.getTime() + 30 * 60 * 1000);
+    if (now > lateThreshold) {
+      attendanceStatus = "Late";
+    }
+
+    let lateByMinutes = 0;
+    if (now > effectiveShiftStart) {
+      lateByMinutes = Math.floor((now - effectiveShiftStart) / (1000 * 60));
+    }
+
+    // Dynamic Mid-time for Half Day
+    const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
+    const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
+
     const approvedLeave = await LeaveApplication.findOne({
       employeeId,
       startDate: { $lte: today },
@@ -117,15 +220,6 @@ export const punchIn = async (req, res) => {
       status: "Approved",
       type: "Half Day"
     });
-
-    let attendanceStatus = "Present";
-    
-    // Dynamic Mid-time calculation: StartTime + (ShiftDuration / 2)
-    const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
-    const midTimeMinutes = shiftDurationMinutes / 2;
-    
-    const midTime = new Date(shiftStartToday);
-    midTime.setMinutes(midTime.getMinutes() + midTimeMinutes);
 
     if (approvedLeave) {
       if (approvedLeave.half === "First Half") {
@@ -141,22 +235,21 @@ export const punchIn = async (req, res) => {
         // Optional: Enforcement to punch out early handled by policy
         attendanceStatus = "Half Day";
       }
-    } else {
-      // Standard Status Logic
-      const lateThreshold = new Date(shiftStartToday);
-      lateThreshold.setMinutes(lateThreshold.getMinutes() + 30);
-
-      if (now > lateThreshold) {
-        attendanceStatus = "Late";
-      }
     }
-
-    let lateByMinutes = 0;
-    if (now > shiftStartToday) {
-      lateByMinutes = Math.floor((now - shiftStartToday) / (1000 * 60));
+    // 4. Network & Work Location Validation
+    const networkValidation = validateOfficeNetwork(req, employeeProfile);
+    if (!networkValidation.isValid) {
+      return res.status(403).json({
+        code: "OFFICE_IP_REQUIRED",
+        message: networkValidation.message,
+        detectedIP: networkValidation.clientIP
+      });
     }
+    const networkType = networkValidation.networkType;
+    const clientIP = networkValidation.clientIP;
+    const effectiveWorkMode = networkValidation.effectiveWorkMode;
 
-    // 4. Process Location & Geofencing (rest of the logic remains similar)
+    // 5. Process Location & Selfie
     let locationData = {};
     if (req.body.location) {
       try {
@@ -166,30 +259,36 @@ export const punchIn = async (req, res) => {
 
     const selfieUrl = req.file ? `/uploads/${req.file.filename}` : null;
     if (!selfieUrl) {
-      console.log("Error: Selfie missing in request (req.file is undefined)");
       return res.status(400).json({ message: "Selfie is mandatory for attendance." });
     }
 
-    const rawIP = getClientIP(req);
-    const clientIP = normalizeIP(rawIP);
-    const selectedWorkLocation = req.body.workLocation || "Office";
-    
-    // Create Attendance Record
-    const attendance = await Attendance.create({
+    // 6. Create or Update Attendance Record
+    const attendanceData = {
       employee: employeeId,
       date: today,
       inTime: currentTimeStr,
-      status: attendanceStatus,
-      shiftType: shift.shiftType,
-      workLocation: selectedWorkLocation,
+      status: attendanceStatus, // Save the determined status (Late/Present/Half Day)
+      workLocation: effectiveWorkMode === "OFFICE" ? "Office" : "Remote",
       lateByMinutes,
       selfieUrl,
       location: locationData,
+      shiftType: shift.shiftType, // Save the shift type
+      autoMarked: false, // It's a manual punch
       deviceInfo: {
         userAgent: req.headers["user-agent"],
-        ip: clientIP
+        ip: clientIP,
+        networkType: networkType
       }
-    });
+    };
+
+    let attendance;
+    if (existing && existing.autoMarked) {
+      // Update existing auto-marked record
+      attendance = await Attendance.findByIdAndUpdate(existing._id, attendanceData, { new: true });
+    } else {
+      // Create new record
+      attendance = await Attendance.create(attendanceData);
+    }
 
     res.status(201).json({
       message: `Punch in successful. Status: ${attendanceStatus}`,
@@ -231,8 +330,18 @@ export const punchOut = async (req, res) => {
     // Fetch Employee with Shift to get duration
     const employeeProfile = await Employee.findById(employeeId).populate("shiftId");
     const shift = employeeProfile?.shiftId;
-    const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
 
+    // 0. Network Validation for Onsite
+    const networkValidation = validateOfficeNetwork(req, employeeProfile);
+    if (!networkValidation.isValid) {
+      return res.status(403).json({
+        code: "OFFICE_IP_REQUIRED",
+        message: networkValidation.message,
+        detectedIP: networkValidation.clientIP
+      });
+    }
+
+    const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -412,12 +521,8 @@ export const updateAttendance = async (req, res) => {
         let emp = await Employee.findById(attendance.employee).populate("shiftId");
         
         if (!emp?.shiftId) {
-          let searchType = emp?.shift || "Morning";
-          if (searchType === "DAY") searchType = "Morning";
-          if (searchType === "NIGHT") searchType = "Night";
-          emp.shiftId = await Shift.findOne({ shiftType: searchType }) || await Shift.findOne();
+          return res.status(400).json({ message: "No shift assigned to employee." });
         }
-
         const dur = emp?.shiftId?.duration ? (emp.shiftId.duration * 60) : 540;
         attendance.overtimeMinutes = Math.max(0, totalMinutes - dur);
       }
@@ -459,6 +564,17 @@ export const startBreak = async (req, res) => {
     if (!attendance) return res.status(404).json({ message: "Check-in required before taking a break." });
     if (attendance.outTime) return res.status(400).json({ message: "Already punched out for today." });
 
+    // Network Validation
+    const employeeProfile = await Employee.findById(employeeId);
+    const networkValidation = validateOfficeNetwork(req, employeeProfile);
+    if (!networkValidation.isValid) {
+      return res.status(403).json({
+        code: "OFFICE_IP_REQUIRED",
+        message: networkValidation.message,
+        detectedIP: networkValidation.clientIP
+      });
+    }
+
     const lastBreak = attendance.breaks[attendance.breaks.length - 1];
     if (lastBreak && !lastBreak.endTime) {
       return res.status(400).json({ message: "You have an active break. Please end it first." });
@@ -485,6 +601,17 @@ export const endBreak = async (req, res) => {
 
     const attendance = await Attendance.findOne({ employee: employeeId, date: today });
     if (!attendance) return res.status(404).json({ message: "Attendance record not found." });
+
+    // Network Validation
+    const employeeProfile = await Employee.findById(employeeId);
+    const networkValidation = validateOfficeNetwork(req, employeeProfile);
+    if (!networkValidation.isValid) {
+      return res.status(403).json({
+        code: "OFFICE_IP_REQUIRED",
+        message: networkValidation.message,
+        detectedIP: networkValidation.clientIP
+      });
+    }
 
     const activeBreak = attendance.breaks.find(b => !b.endTime);
     if (!activeBreak) return res.status(400).json({ message: "No active break found." });

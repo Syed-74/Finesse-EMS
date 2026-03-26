@@ -26,6 +26,7 @@ export const createEmployee = async (req, res) => {
             dateOfJoining,
             employmentType,
             workLocation,
+            officeDays,
             shift,
         } = req.body;
 
@@ -48,6 +49,7 @@ export const createEmployee = async (req, res) => {
             dateOfJoining,
             employmentType,
             workLocation,
+            officeDays: officeDays || [],
             shift,
             createdBy: req.admin._id,
         });

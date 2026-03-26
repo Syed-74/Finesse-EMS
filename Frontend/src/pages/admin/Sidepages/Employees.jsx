@@ -155,6 +155,7 @@ export default function Employees() {
         employmentType: currentEmployee.employmentType,
         dateOfJoining: currentEmployee.dateOfJoining,
         workLocation: currentEmployee.workLocation,
+        officeDays: currentEmployee.officeDays || [],
         shift: currentEmployee.shift,
         attendanceRequired: currentEmployee.attendanceRequired,
         leaveBalance: currentEmployee.leaveBalance,
@@ -242,6 +243,7 @@ export default function Employees() {
       department: emp.department || "",
       employmentType: emp.employmentType || "FULL_TIME",
       workLocation: emp.workLocation || "OFFICE",
+      officeDays: emp.officeDays || [],
       shift: emp.shift || "DAY",
       attendanceRequired: emp.attendanceRequired ?? true,
       leaveBalance: emp.leaveBalance || 0,
@@ -434,6 +436,38 @@ export default function Employees() {
                 <option value="HYBRID">Hybrid</option>
               </select>
             </div>
+
+            {currentEmployee.workLocation === "HYBRID" && (
+              <div className="col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-3 text-center">
+                  Select Office Days (Hybrid)
+                </label>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map(day => {
+                    const isSelected = (currentEmployee.officeDays || []).includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          const newDays = isSelected
+                            ? currentEmployee.officeDays.filter(d => d !== day)
+                            : [...(currentEmployee.officeDays || []), day];
+                          setCurrentEmployee({ ...currentEmployee, officeDays: newDays });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all border-2 
+                          ${isSelected 
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100" 
+                            : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"}`}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2 italic text-center">Selected days will require Office WiFi for punch-in.</p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Shift</label>
               <select

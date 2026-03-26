@@ -42,6 +42,7 @@ const EmployeeAttendance = () => {
   const [shift, setShift] = useState(null);
   const [todayLeave, setTodayLeave] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [profile, setProfile] = useState(null);
 
   // 🕒 Break & Regularize state
   const [breakLoading, setBreakLoading] = useState(false);
@@ -52,8 +53,13 @@ const EmployeeAttendance = () => {
   const [requestedOutTime, setRequestedOutTime] = useState("");
 
   const token = localStorage.getItem("token");
-  const employeeWorkLocation = admin?.workLocation?.toUpperCase?.() || "OFFICE";
+
+  // Determine Effective Mode based on LIVE profile data
+  const employeeWorkLocation = profile?.workLocation?.toUpperCase?.() || "OFFICE";
   const isHybrid = employeeWorkLocation === "HYBRID";
+  const todayDayName = new Date().toLocaleString("en-US", { weekday: "long" }).toUpperCase();
+  const isTodayOfficeDay = (profile?.officeDays || []).some(d => d.toUpperCase() === todayDayName);
+  const effectiveMode = isHybrid ? (isTodayOfficeDay ? "OFFICE" : "REMOTE") : employeeWorkLocation;
 
   // Fetch Location on mount
   useEffect(() => {
@@ -77,10 +83,22 @@ const EmployeeAttendance = () => {
     fetchAttendance();
     fetchShift();
     fetchTodayLeave();
+    fetchProfile();
 
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/employees/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProfile(res.data);
+    } catch (err) {
+      console.error("Failed to fetch profile", err);
+    }
+  };
 
   const fetchTodayLeave = async () => {
     try {
@@ -129,26 +147,72 @@ const EmployeeAttendance = () => {
     if (!capturedImage) return alert("Please capture a selfie first.");
     if (!location) return alert("Waiting for GPS location — please enable GPS.");
 
-    // Local Shift Validation
-    const [h, m] = shift.startTime.split(":").map(Number);
-    const shiftStart = new Date();
-    shiftStart.setHours(h, m, 0, 0);
+    // --- 🛠️ Robust Shift Discovery Logic ---
+    const parseStartTime = (timeStr) => {
+      if (!timeStr) return { h: 9, m: 0 };
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      if (!match) return { h: 9, m: 0 };
+      let h = parseInt(match[1]);
+      const m = parseInt(match[2]);
+      const ampm = match[3]?.toUpperCase();
+      if (ampm === "PM" && h < 12) h += 12;
+      if (ampm === "AM" && h === 12) h = 0;
+      return { h, m };
+    };
 
-    const allowedFrom = new Date(shiftStart);
-    allowedFrom.setMinutes(allowedFrom.getMinutes() - 30);
+    const getShiftInstance = (baseDate, startTimeStr) => {
+      const { h, m } = parseStartTime(startTimeStr);
+      const d = new Date(baseDate);
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
 
-    if (currentTime < allowedFrom) {
-      return alert(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const candidates = [
+      getShiftInstance(yesterday, shift.startTime),
+      getShiftInstance(today, shift.startTime)
+    ];
+
+    let bestShiftStart = null;
+    const EARLY_WINDOW_MS = 30 * 60 * 1000;
+    const LATE_WINDOW_MS = 12 * 60 * 60 * 1000;
+
+    for (const start of candidates) {
+      const diff = currentTime - start;
+      console.log(`Client Check - Candidate: ${start.toLocaleString()} | Diff: ${Math.floor(diff/60000)} mins`);
+      if (diff >= -EARLY_WINDOW_MS && diff <= LATE_WINDOW_MS) {
+        bestShiftStart = start;
+        console.log(`Client Match: ${start.toLocaleString()}`);
+        break;
+      }
     }
+
+    if (!bestShiftStart) {
+      console.log("Client - No matching shift instance found.");
+      const nextShift = getShiftInstance(today, shift.startTime);
+      const allowedFrom = new Date(nextShift.getTime() - EARLY_WINDOW_MS);
+      if (currentTime < allowedFrom) {
+        return alert(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      }
+      return alert(`Outside valid shift window. Shift starts at ${shift.startTime}.`);
+    }
+
+    const effectiveShiftStart = bestShiftStart;
 
     // Half Day Leave Check
     if (todayLeave && todayLeave.type === "Half Day") {
-      const midTime = new Date(shiftStart);
-      midTime.setMinutes(midTime.getMinutes() + 270); // 4.5 hours
+      const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
+      const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
+      
       if (todayLeave.half === "First Half" && currentTime < midTime) {
         return alert(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
     }
+
 
     setLoading(true);
     setStatus("punching");
@@ -162,13 +226,11 @@ const EmployeeAttendance = () => {
       const formData = new FormData();
       formData.append("selfie", file);
       formData.append("location", JSON.stringify(location));
-      formData.append("workLocation", isHybrid ? selectedWorkLocation : "Office");
-      formData.append("shiftType", shift.shiftType);
+      formData.append("workLocation", effectiveMode === "OFFICE" ? "Office" : "Remote");
 
       await axios.post("http://localhost:5000/api/attendance/punch-in", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
         },
       });
 
@@ -181,8 +243,10 @@ const EmployeeAttendance = () => {
       const errData = err.response?.data;
       if (err.response?.status === 403 && errData?.code === "OFFICE_IP_REQUIRED") {
         setMessage(errData.message);
+      } else if (errData?.message) {
+        setMessage(errData.message);
       } else {
-        setMessage(errData?.message || "Punch In Failed. Please try again.");
+        setMessage("Punch In Failed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -319,14 +383,18 @@ const EmployeeAttendance = () => {
           </div>
 
           {/* Work Mode Badge */}
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border 
-            ${employeeWorkLocation === "OFFICE" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-              employeeWorkLocation === "REMOTE" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                "bg-amber-50 text-amber-700 border-amber-200"}`}>
-            {employeeWorkLocation === "OFFICE" ? <Building2 className="w-4 h-4" /> :
-              employeeWorkLocation === "REMOTE" ? <Globe className="w-4 h-4" /> :
-                <Activity className="w-4 h-4" />}
-            {employeeWorkLocation} Mode
+          <div className="flex flex-col items-end gap-1">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border 
+              ${effectiveMode === "OFFICE" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                "bg-blue-50 text-blue-700 border-blue-200"}`}>
+              {effectiveMode === "OFFICE" ? <Building2 className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+              {effectiveMode} Mode
+            </div>
+            {isHybrid && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-2 rounded-full border border-amber-100">
+                Hybrid Schedule
+              </span>
+            )}
           </div>
 
           {/* Shift Badge */}
@@ -499,31 +567,29 @@ const EmployeeAttendance = () => {
                         </div>
                       </div>
 
-                      {/* Hybrid: Work Location Selector */}
-                      {isHybrid && !alreadyPunchedIn && (
-                        <div>
-                          <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
-                            Where are you working from today?
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={selectedWorkLocation}
-                              onChange={(e) => setSelectedWorkLocation(e.target.value)}
-                              className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3 pr-10 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                            >
-                              <option value="Office">🏢 Office</option>
-                              <option value="Remote">🏠 Remote / WFH</option>
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                          </div>
-                          {selectedWorkLocation === "Office" && (
-                            <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-medium flex items-center gap-2">
-                              <Shield className="w-3.5 h-3.5 shrink-0" />
-                              IP validation required for office attendance
-                            </p>
-                          )}
+                      {/* Automatic Work Mode Status */}
+                      <div className={`p-4 rounded-xl border-2 transition-all ${effectiveMode === "OFFICE" ? "bg-indigo-50 border-indigo-100" : "bg-blue-50 border-blue-100"}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current Work Mode</h3>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${effectiveMode === "OFFICE" ? "bg-indigo-600 text-white" : "bg-blue-600 text-white"}`}>
+                            {effectiveMode === "OFFICE" ? "ONSITE" : "REMOTE"}
+                          </span>
                         </div>
-                      )}
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${effectiveMode === "OFFICE" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-blue-600 shadow-sm"}`}>
+                            {effectiveMode === "OFFICE" ? <Building2 className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-800">
+                              {effectiveMode === "OFFICE" ? "Office Network Required" : "Working from Anywhere"}
+                            </p>
+                            <p className="text-[10px] font-medium text-slate-500">
+                              {isHybrid ? `Based on your Hybrid schedule for ${todayDayName}` : `Standard ${employeeWorkLocation} policy enforced`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
 
                       {/* Action Buttons */}
                       <div className="flex flex-col gap-3">

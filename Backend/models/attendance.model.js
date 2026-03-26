@@ -23,7 +23,7 @@ const attendanceSchema = new mongoose.Schema(
     inTime: {
       type: String, // "09:05"
       required: function () {
-        return this.status === "Present" || this.status === "Half Day";
+        return ["Present", "Late", "Half Day"].includes(this.status);
       }
     },
 

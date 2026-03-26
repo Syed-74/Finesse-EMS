@@ -137,6 +137,11 @@ const employeeSchema = new mongoose.Schema(
       default: "OFFICE",
     },
 
+    officeDays: {
+      type: [String], // ["MONDAY", "WEDNESDAY"] - For Hybrid users
+      default: [],
+    },
+
     officeLocation: {
       type: String,
       trim: true,
