@@ -7,7 +7,8 @@ import {
   Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "react-hot-toast";
+import { showSuccess, showError, showWarning } from "../../../utils/toast";
+import { useConfirm } from "../../../context/ConfirmContext";
 
 const Payroll = () => {
   const [payrolls, setPayrolls] = useState([]);
@@ -23,6 +24,7 @@ const Payroll = () => {
     search: "",
     department: "All"
   });
+  const { confirmAction } = useConfirm();
 
   // Stats
   const [stats, setStats] = useState({
@@ -55,7 +57,7 @@ const Payroll = () => {
       calculateStats(filteredPayrolls, employeeRes.data.length);
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast.error("Failed to fetch payroll data");
+      showError("Sync failure: Payroll data unreachable.");
     } finally {
       setLoading(false);
     }
@@ -77,23 +79,41 @@ const Payroll = () => {
   };
 
   const handleAction = async (id, action) => {
-    try {
-      let endpoint = "";
-      if (action === "approve") endpoint = `/payroll/approve/${id}`;
-      if (action === "pay") endpoint = `/payroll/pay/${id}`;
-      if (action === "delete") {
-        if (!window.confirm("Are you sure you want to delete this payroll?")) return;
-        await axios.delete(`/payroll/${id}`);
-        toast.success("Payroll deleted successfully");
-        fetchData();
-        return;
-      }
+    const processAction = async () => {
+        try {
+            let endpoint = "";
+            if (action === "approve") endpoint = `/payroll/approve/${id}`;
+            if (action === "pay") endpoint = `/payroll/pay/${id}`;
+            if (action === "delete") endpoint = `/payroll/${id}`;
 
-      await axios.put(endpoint, {});
-      toast.success(`Payroll ${action}d successfully`);
-      fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || `Failed to ${action} payroll`);
+            if (action === "delete") {
+                await axios.delete(endpoint);
+            } else {
+                await axios.put(endpoint, {});
+            }
+
+            showSuccess(`Payroll ${action === "pay" ? "payment processed" : action + "d"} successfully.`);
+            fetchData();
+        } catch (error) {
+            showError(error.response?.data?.message || `Execution failed for ${action} action.`);
+        }
+    };
+
+    if (action === "delete") {
+        confirmAction({
+            title: "Delete Payroll Record",
+            message: "Are you sure you want to permanently remove this payroll entry? This cannot be undone.",
+            type: "danger",
+            onConfirm: processAction
+        });
+    } else if (action === "pay") {
+        confirmAction({
+            title: "Process Payment",
+            message: "Confirm salary disbursement for this employee? This will notify them via email.",
+            onConfirm: processAction
+        });
+    } else {
+        processAction();
     }
   };
 
@@ -110,10 +130,10 @@ const Payroll = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success("Payslip downloaded successfully");
+      showSuccess("Payslip generated and downloaded.");
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Failed to download payslip");
+      showError("Document generation failed.");
     }
   };
 
@@ -470,21 +490,21 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.employeeId) return toast.error("Please select an employee");
+    if (!formData.employeeId) return showWarning("Please select a target employee.");
 
     setLoading(true);
     try {
       if (isEdit) {
         await axios.put(`/payroll/${data._id}`, formData);
-        toast.success("Payroll updated successfully");
+        showSuccess("Payroll modifications synchronized.");
       } else {
         await axios.post(`/payroll/generate`, formData);
-        toast.success("Payroll generated as Draft");
+        showSuccess("Payroll draft generated successfully.");
       }
       refresh();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Something went wrong");
+      showError(error.response?.data?.message || "Sync failure: Check for duplicates.");
     } finally {
       setLoading(false);
     }

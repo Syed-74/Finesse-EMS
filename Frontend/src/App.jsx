@@ -18,11 +18,12 @@ import Communication from "./pages/admin/Sidepages/Communication";
 import EmployeeNotifications from "./pages/employee/EmployeeNotifications";
 import Employees from "./pages/admin/Sidepages/Employees";
 import { Toaster } from "react-hot-toast";
+import { ConfirmProvider } from "./context/ConfirmContext";
 
 
 function App() {
   return (
-    <>
+    <ConfirmProvider>
       <Routes>
         <Route path="/" element={<Login />} />
 
@@ -53,7 +54,7 @@ function App() {
 
       {/* ✅ Move Toaster here */}
       <Toaster position="top-right" reverseOrder={false} />
-    </>
+    </ConfirmProvider>
   );
 }
 

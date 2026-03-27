@@ -29,6 +29,8 @@ import {
   Coffee
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { showSuccess, showError, showWarning } from "../../../utils/toast";
+import { useConfirm } from "../../../context/ConfirmContext";
 
 /* =========================
    NETWORK BADGE HELPER
@@ -54,6 +56,8 @@ const Attendance = () => {
   // Modals
   const [editingRecord, setEditingRecord] = useState(null);
   const [viewingProof, setViewingProof] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const { confirmAction } = useConfirm();
   const token = localStorage.getItem("token");
 
   // Stats
@@ -138,40 +142,66 @@ const Attendance = () => {
       );
       setEditingRecord(null);
       fetchAttendance();
+      showSuccess("Attendance record sync completed.");
     } catch (err) {
-      alert("Failed to update record");
+      showError("Synchronization failed. Check connectivity.");
     }
   };
 
   const handleApproveRegularization = async (requestId) => {
-    if (!window.confirm("Approve this regularization request?")) return;
-    try {
-      await axios.post(
-        `http://localhost:5000/api/attendance/approve-regularize`,
-        { requestId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("Request approved");
-      fetchRegularizationRequests();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to approve request");
-    }
+    confirmAction({
+      title: "Confirm Approval",
+      message: "Are you sure you want to approve this regularization request? The attendance record will be updated immediately.",
+      onConfirm: async () => {
+        try {
+          await axios.post(
+            `http://localhost:5000/api/attendance/approve-regularize`,
+            { requestId },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          showSuccess("Request verified and approved.");
+          fetchRegularizationRequests();
+        } catch (err) {
+          showError(err.response?.data?.message || "Internal approval error.");
+        }
+      }
+    });
   };
 
   const handleRejectRegularization = async (requestId) => {
-    const reason = window.prompt("Reason for rejection:");
-    if (!reason) return;
-    try {
-      await axios.post(
-        `http://localhost:5000/api/attendance/reject-regularize`,
-        { requestId, adminRemarks: reason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("Request rejected");
-      fetchRegularizationRequests();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to reject request");
-    }
+    confirmAction({
+      title: "Deny Correction Request",
+      message: "Please provide a specific reason for denying this attendance correction.",
+      type: "danger",
+      children: (
+        <div className="mt-4">
+          <textarea 
+            className="w-full border border-slate-200 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-rose-100 outline-none resize-none bg-slate-50 transition-all font-medium"
+            rows="3"
+            placeholder="e.g. Times do not match system logs..."
+            onChange={(e) => setRejectionReason(e.target.value)}
+          />
+        </div>
+      ),
+      onConfirm: async () => {
+        if (!rejectionReason.trim()) {
+          showWarning("A reason is mandatory for rejection.");
+          return;
+        }
+        try {
+          await axios.post(
+            `http://localhost:5000/api/attendance/reject-regularize`,
+            { requestId, adminRemarks: rejectionReason },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          showSuccess("Correction request denied.");
+          setRejectionReason("");
+          fetchRegularizationRequests();
+        } catch (err) {
+          showError(err.response?.data?.message || "Rejection attempt failed.");
+        }
+      }
+    });
   };
 
   const getStatusBadge = (status, late) => {
@@ -206,7 +236,7 @@ const Attendance = () => {
   });
 
   const handleExportCSV = () => {
-    if (records.length === 0) return alert("No records to export");
+    if (records.length === 0) return showWarning("No data patterns available for export.");
     const headers = ["Employee ID", "Employee Name", "Date", "In Time", "Out Time", "Work Location", "Status", "Late (min)"];
     const rows = filteredRecords.map(r => [
       r.employee?.employeeId,

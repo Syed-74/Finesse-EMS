@@ -20,6 +20,8 @@ import {
   ArrowLeft,
   DollarSign
 } from "lucide-react";
+import { showSuccess, showError, showWarning } from "../../../utils/toast";
+import { useConfirm } from "../../../context/ConfirmContext";
 
 // Configure base API_URL
 const API_URL = "http://localhost:5000/api/employees";
@@ -46,10 +48,9 @@ export default function Employees() {
   const [activeTab, setActiveTab] = useState("Active"); // "Active" or "Pending"
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [confirmAction, setConfirmAction] = useState({ type: "", action: () => { } });
+  const { confirmAction } = useConfirm();
 
   const { admin: authAdmin, loading: authLoading } = useAuth();
 
@@ -173,9 +174,10 @@ export default function Employees() {
       fetchEmployees();
       setIsEditOpen(false);
       setCurrentStep(1);
+      showSuccess("Employee details synchronized successfully");
     } catch (error) {
       console.error("Error saving employee", error);
-      alert("Failed to save changes.");
+      showError(error.response?.data?.message || "Failed to save changes.");
     }
   };
 
@@ -183,20 +185,23 @@ export default function Employees() {
     try {
       await axios.delete(`${API_URL}/${id}`);
       fetchEmployees();
-      setIsConfirmOpen(false);
+      showSuccess("Employee record permanently removed");
     } catch (error) {
       console.error("Error deleting employee", error);
+      showError("Critical: Failed to remove employee record.");
     }
   };
 
   const handleToggleStatus = async (emp) => {
     try {
       const id = emp._id || emp.employeeId;
-      await axios.put(`${API_URL}/${id}`, { isActive: !emp.isActive });
+      const newStatus = !emp.isActive;
+      await axios.put(`${API_URL}/${id}`, { isActive: newStatus });
       fetchEmployees();
-      setIsConfirmOpen(false);
+      showSuccess(`Account ${newStatus ? 'activated' : 'deactivated'} successfully`);
     } catch (error) {
       console.error("Error updating status", error);
+      showError("Failed to update account status.");
     }
   };
 
@@ -204,10 +209,10 @@ export default function Employees() {
     try {
         await axios.put(`${API_URL}/${id}/approve`);
         fetchEmployees();
-        setIsConfirmOpen(false);
+        showSuccess("Registration approved. Credentials dispatched.");
     } catch (error) {
         console.error("Error approving employee", error);
-        alert(error.response?.data?.message || "Failed to approve employee");
+        showError(error.response?.data?.message || "Approval process failed.");
     }
   };
 
@@ -215,11 +220,11 @@ export default function Employees() {
     try {
         await axios.put(`${API_URL}/${id}/reject`, { reason });
         fetchEmployees();
-        setIsConfirmOpen(false);
         setRejectionReason("");
+        showSuccess("Registration revoked successfully.");
     } catch (error) {
         console.error("Error rejecting employee", error);
-        alert(error.response?.data?.message || "Failed to reject employee");
+        showError(error.response?.data?.message || "Rejection update failed.");
     }
   };
 
@@ -228,9 +233,10 @@ export default function Employees() {
         await axios.post(`${API_URL}/bulk-approve`, { ids: selectedEmployees });
         fetchEmployees();
         setSelectedEmployees([]);
-        setIsConfirmOpen(false);
+        showSuccess(`Successfully approved ${selectedEmployees.length} profiles.`);
     } catch (error) {
         console.error("Bulk approval error", error);
+        showError("Batch processing failed.");
     }
   };
 
@@ -265,49 +271,58 @@ export default function Employees() {
 
   const confirmActionModal = (type, emp) => {
     if (type === "delete") {
-      setConfirmAction({
-        type: "delete",
+      confirmAction({
         title: "Delete Employee",
-        message: `Are you sure you want to permanently delete ${emp.firstName} ${emp.lastName}?`,
-        action: () => handleDelete(emp._id || emp.employeeId)
+        message: `Are you sure you want to permanently delete ${emp.firstName} ${emp.lastName}? This action cannot be undone.`,
+        type: "danger",
+        onConfirm: () => handleDelete(emp._id || emp.employeeId)
       });
     } else if (type === "status") {
       const newStatus = emp.isActive ? "Deactivate" : "Activate";
-      setConfirmAction({
-        type: "status",
+      confirmAction({
         title: `${newStatus} Account`,
         message: `Are you sure you want to ${newStatus.toLowerCase()} access for ${emp.firstName}?`,
-        action: () => handleToggleStatus(emp)
+        type: emp.isActive ? "danger" : "primary",
+        onConfirm: () => handleToggleStatus(emp)
       });
     } else if (type === "approve") {
-      setConfirmAction({
-        type: "approve",
+      confirmAction({
         title: "Approve Employee",
-        message: `Allow ${emp.firstName} to access the system?`,
-        action: () => handleApprove(emp._id || emp.employeeId)
+        message: `Allow ${emp.firstName} to access the system? They will receive an automated email.`,
+        onConfirm: () => handleApprove(emp._id || emp.employeeId)
       });
     } else if (type === "reject") {
-      setConfirmAction({
-        type: "reject",
+      confirmAction({
         title: "Reject Registration",
-        message: `Deny access for ${emp.firstName}? Please provide a reason.`,
-        action: () => {
+        message: `Deny access for ${emp.firstName}? This will revoke their pending credentials.`,
+        type: "danger",
+        children: (
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rejection Reason</label>
+            <textarea 
+                className="w-full border border-slate-200 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-rose-100 outline-none resize-none bg-slate-50 transition-all font-medium"
+                rows="3"
+                placeholder="e.g. Incomplete documentation..."
+                defaultValue={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+            />
+          </div>
+        ),
+        onConfirm: () => {
             if (!rejectionReason.trim()) {
-                alert("Please provide a rejection reason.");
+                showWarning("Please provide a rejection reason.");
                 return;
             }
             handleReject(emp._id || emp.employeeId, rejectionReason);
         }
       });
     } else if (type === "bulk-approve") {
-      setConfirmAction({
-        type: "approve",
+      confirmAction({
         title: "Bulk Approval",
         message: `Are you sure you want to approve ${selectedEmployees.length} selected employees?`,
-        action: handleBulkApprove
+        onConfirm: handleBulkApprove
       });
     }
-    setIsConfirmOpen(true);
   };
 
   // --- Render Steps ---
@@ -963,47 +978,6 @@ export default function Employees() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
-      {isConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsConfirmOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
-                confirmAction.type === 'delete' || confirmAction.type === 'reject' ? 'bg-red-100 text-red-600' : 
-                confirmAction.type === 'approve' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'
-            }`}>
-              {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6" /> : 
-               confirmAction.type === 'approve' ? <UserCheck className="w-6 h-6" /> : <UserX className="w-6 h-6" />}
-            </div>
-
-            <div className="text-center">
-              <h3 className="text-lg font-bold text-gray-900">{confirmAction.title}</h3>
-              <p className="text-sm text-gray-500 mt-2">{confirmAction.message}</p>
-            </div>
-
-            {confirmAction.type === 'reject' && (
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Rejection Reason</label>
-                    <textarea 
-                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none"
-                        rows="3"
-                        placeholder="e.g. Incomplete documentation, invalid email..."
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                    />
-                </div>
-            )}
-
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => { setIsConfirmOpen(false); setRejectionReason(""); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-              <button onClick={confirmAction.action} className={`flex-1 px-4 py-2 text-white rounded-lg font-medium shadow-sm ${
-                  confirmAction.type === 'delete' || confirmAction.type === 'reject' ? 'bg-red-600 hover:bg-red-700' : 
-                  confirmAction.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'
-              }`}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

@@ -25,6 +25,7 @@ import {
   CalendarDays
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
+import { showSuccess, showError, showWarning } from "../../utils/toast";
 
 const EmployeeAttendance = () => {
   const { admin } = useAuth();
@@ -143,9 +144,9 @@ const EmployeeAttendance = () => {
   };
 
   const handlePunchIn = async () => {
-    if (!shift) return alert("No shift assigned. Please contact Admin.");
-    if (!capturedImage) return alert("Please capture a selfie first.");
-    if (!location) return alert("Waiting for GPS location — please enable GPS.");
+    if (!shift) return showError("No shift assigned. Please contact Admin.");
+    if (!capturedImage) return showWarning("Please capture a selfie first.");
+    if (!location) return showWarning("Waiting for GPS location — please enable GPS.");
 
     // --- 🛠️ Robust Shift Discovery Logic ---
     const parseStartTime = (timeStr) => {
@@ -196,9 +197,9 @@ const EmployeeAttendance = () => {
       const nextShift = getShiftInstance(today, shift.startTime);
       const allowedFrom = new Date(nextShift.getTime() - EARLY_WINDOW_MS);
       if (currentTime < allowedFrom) {
-        return alert(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        return showWarning(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
-      return alert(`Outside valid shift window. Shift starts at ${shift.startTime}.`);
+      return showWarning(`Outside valid shift window. Shift starts at ${shift.startTime}.`);
     }
 
     const effectiveShiftStart = bestShiftStart;
@@ -209,7 +210,7 @@ const EmployeeAttendance = () => {
       const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
       
       if (todayLeave.half === "First Half" && currentTime < midTime) {
-        return alert(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        return showWarning(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
     }
 
@@ -236,6 +237,7 @@ const EmployeeAttendance = () => {
 
       setStatus("success");
       setMessage("Punch In Successful");
+      showSuccess("Attendance verified. Have a great shift!");
       fetchAttendance();
     } catch (err) {
       console.error("Punch-In API Error:", err);
@@ -263,6 +265,7 @@ const EmployeeAttendance = () => {
       );
       setStatus("success");
       setMessage("Punch Out Successful");
+      showSuccess("Punch out completed. Drive safe!");
       fetchAttendance();
     } catch (err) {
       setStatus("error");
@@ -282,7 +285,7 @@ const EmployeeAttendance = () => {
       setMessage(`${type} started`);
       fetchAttendance();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to start break");
+      showError(err.response?.data?.message || "Failed to start break");
     } finally {
       setBreakLoading(false);
     }
@@ -299,7 +302,7 @@ const EmployeeAttendance = () => {
       setMessage("Break ended");
       fetchAttendance();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to end break");
+      showError(err.response?.data?.message || "Failed to end break");
     } finally {
       setBreakLoading(false);
     }
@@ -319,11 +322,11 @@ const EmployeeAttendance = () => {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      alert("Regularization request submitted");
+      showSuccess("Regularization request submitted");
       setShowRegularizeModal(false);
       fetchAttendance();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to submit request");
+      showError(err.response?.data?.message || "Failed to submit request");
     } finally {
       setLoading(false);
     }

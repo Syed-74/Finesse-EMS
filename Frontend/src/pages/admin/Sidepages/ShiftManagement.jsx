@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Edit3
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { showSuccess, showError, showWarning } from "../../../utils/toast";
+import { useConfirm } from "../../../context/ConfirmContext";
 
 const ShiftManagement = () => {
   const [shifts, setShifts] = useState([]);
@@ -22,6 +23,7 @@ const ShiftManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const { confirmAction } = useConfirm();
 
   const [newShift, setNewShift] = useState({
     shiftType: "Morning",
@@ -68,7 +70,7 @@ const ShiftManagement = () => {
       setEmployees(employeesRes.data);
     } catch (err) {
       console.error("Failed to fetch data", err);
-      toast.error("Failed to load shift data");
+      showError("Critical: Failed to synchronize shift rosters.");
     } finally {
       setLoading(false);
     }
@@ -83,7 +85,7 @@ const ShiftManagement = () => {
     );
 
     if (!editingShiftId && existingShift) {
-      return toast.error(`${newShift.shiftType} shift already exists`);
+      return showWarning(`${newShift.shiftType} shift configuration already exists.`);
     }
 
     try {
@@ -93,14 +95,14 @@ const ShiftManagement = () => {
           newShift,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        toast.success("Shift updated successfully");
+        showSuccess("Shift configuration updated.");
       } else {
         await axios.post(
           "http://localhost:5000/api/shifts",
           newShift,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        toast.success("Shift created successfully");
+        showSuccess("New shift successfully registered.");
       }
 
       setShowShiftModal(false);
@@ -108,37 +110,43 @@ const ShiftManagement = () => {
       fetchData();
 
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to process shift");
+      showError(err.response?.data?.message || "Shift operation failed.");
     }
   };
 
   const handleDeleteShift = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this shift? This may affect attendance records.")) return;
-    try {
-      await axios.delete(`http://localhost:5000/api/shifts/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success("Shift deleted");
-      fetchData();
-    } catch (err) {
-      toast.error("Failed to delete shift");
-    }
+    confirmAction({
+      title: "Remove Shift Configuration",
+      message: "Are you sure you want to delete this shift? This will impact attendance logs and employee rosters linked to this shift.",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          await axios.delete(`http://localhost:5000/api/shifts/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          showSuccess("Shift removed from system.");
+          fetchData();
+        } catch (err) {
+          showError("Failed to decommission shift.");
+        }
+      }
+    });
   };
 
   const handleAssignShift = async (e) => {
     e.preventDefault();
     try {
       if (!assignment.employeeId || !assignment.shiftId) {
-        return toast.error("Please select both employee and shift");
+        return showWarning("Selection incomplete: Employee and Shift required.");
       }
       await axios.post("http://localhost:5000/api/shifts/assign", assignment, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success("Shift assigned successfully");
+      showSuccess("Employee successfully assigned to shift.");
       setShowAssignModal(false);
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to assign shift");
+      showError(err.response?.data?.message || "Shift assignment failed.");
     }
   };
 

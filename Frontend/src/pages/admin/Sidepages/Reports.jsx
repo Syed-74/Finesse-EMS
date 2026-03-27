@@ -40,6 +40,7 @@ import {
   MoreVertical
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { showError } from "../../../utils/toast";
 
 // Colors for Charts
 const COLORS = ["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
@@ -204,7 +205,7 @@ const Reports = () => {
         link.click();
         document.body.removeChild(link);
       } catch (e) {
-        alert("Export failed. Please try again.");
+        showError("Export failed. Please try again.");
       } finally {
         setExportLoading(false);
       }
