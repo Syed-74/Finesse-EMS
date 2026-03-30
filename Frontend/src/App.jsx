@@ -17,6 +17,10 @@ import EmployeeSettings from "./pages/employee/EmployeeSettings";
 import Communication from "./pages/admin/Sidepages/Communication";
 import EmployeeNotifications from "./pages/employee/EmployeeNotifications";
 import Employees from "./pages/admin/Sidepages/Employees";
+import CreateTask from "./pages/admin/Sidepages/CreateTask";
+import TaskList from "./pages/admin/Sidepages/TaskList";
+import TaskDetailAdmin from "./pages/admin/Sidepages/TaskDetailAdmin";
+import EmployeeTask from "./pages/employee/EmployeeTask";
 import { Toaster } from "react-hot-toast";
 import { ConfirmProvider } from "./context/ConfirmContext";
 
@@ -38,6 +42,9 @@ function App() {
           <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/shifts" element={<ShiftManagement />} />
           <Route path="/admin/communication" element={<Communication />} />
+          <Route path="/admin/tasks" element={<TaskList />} />
+          <Route path="/admin/tasks/create" element={<CreateTask />} />
+          <Route path="/admin/tasks/:id" element={<TaskDetailAdmin />} />
         </Route>
 
         {/* EMPLOYEE */}
@@ -49,6 +56,8 @@ function App() {
           <Route path="/employee/salary" element={<EmployeePayroll />} />
           <Route path="/employee/notifications" element={<EmployeeNotifications />} />
           <Route path="/employee/settings" element={<EmployeeSettings />} />
+          <Route path="/employee/tasks" element={<EmployeeTask />} />
+          <Route path="/employee/tasks/:id" element={<EmployeeTask />} /> 
         </Route>
       </Routes>
 
