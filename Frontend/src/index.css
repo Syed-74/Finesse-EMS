@@ -10,3 +10,10 @@ body {
 .nav-link.active {
   @apply bg-indigo-50 text-indigo-700 shadow-sm;
 }
+
+/* Hide Attendance module on mobile (screen width <= 768px) */
+@media (max-width: 768px) {
+  .attendance-mobile-hidden {
+    display: none !important;
+  }
+}

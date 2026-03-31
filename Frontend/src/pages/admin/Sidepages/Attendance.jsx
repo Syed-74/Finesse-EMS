@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Calendar,
@@ -52,6 +53,18 @@ const Attendance = () => {
   const [activeTab, setActiveTab] = useState("attendance"); // attendance | regularization | audit
   const [regularizationRequests, setRegularizationRequests] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkMobile = () => {
+      if (window.innerWidth <= 768) {
+        navigate("/admin");
+      }
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [navigate]);
 
   // Modals
   const [editingRecord, setEditingRecord] = useState(null);

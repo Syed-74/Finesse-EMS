@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Webcam from "react-webcam";
 import axios from "axios";
 import {
@@ -44,6 +45,18 @@ const EmployeeAttendance = () => {
   const [todayLeave, setTodayLeave] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [profile, setProfile] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkMobile = () => {
+      if (window.innerWidth <= 768) {
+        navigate("/employee");
+      }
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [navigate]);
 
   // 🕒 Break & Regularize state
   const [breakLoading, setBreakLoading] = useState(false);
