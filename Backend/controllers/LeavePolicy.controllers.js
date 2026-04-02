@@ -1,6 +1,6 @@
 import LeavePolicy from "../models/LeavePolicy.model.js";
 import LeaveBalance from "../models/LeaveBalance.model.js";
-import Employee from "../models/Employee.model.js";
+import Employee from "../models/employee.model.js";
 /* ==============================
    CREATE LEAVE POLICY (ADMIN)
 ============================== */

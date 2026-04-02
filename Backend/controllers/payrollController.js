@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import Payroll from "../models/Payroll.model.js";
-import Employee from "../models/Employee.model.js";
+import Employee from "../models/employee.model.js";
 import LeavePolicy from "../models/LeavePolicy.model.js";
 import LeaveApplication from "../models/LeaveApplication.model.js";
 import Attendance from "../models/attendance.model.js";
