@@ -83,6 +83,8 @@ export default function Employees() {
         result = result.filter(e => e.isActive && e.status === "APPROVED");
     } else if (activeTab === "Pending") {
         result = result.filter(e => e.status === "PENDING" || e.status === "REJECTED");
+    } else if (activeTab === "Deactivated") {
+        result = result.filter(e => !e.isActive && e.status === "APPROVED");
     }
 
     if (searchTerm) {
@@ -124,8 +126,9 @@ export default function Employees() {
   const stats = useMemo(() => {
     const active = employees.filter(e => e.isActive && e.status === "APPROVED").length;
     const pending = employees.filter(e => e.status === "PENDING").length;
+    const deactivated = employees.filter(e => !e.isActive && e.status === "APPROVED").length;
     const rejected = employees.filter(e => e.status === "REJECTED").length;
-    return { active, pending, rejected };
+    return { active, pending, deactivated, rejected };
   }, [employees]);
 
   // Validation
@@ -676,6 +679,12 @@ export default function Employees() {
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "Active" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
                 Active ({stats.active})
+            </button>
+            <button 
+                onClick={() => { setActiveTab("Deactivated"); setSelectedEmployees([]); }} 
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "Deactivated" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Deactivated ({stats.deactivated})
             </button>
             <button 
                 onClick={() => { setActiveTab("Pending"); setSelectedEmployees([]); }} 
