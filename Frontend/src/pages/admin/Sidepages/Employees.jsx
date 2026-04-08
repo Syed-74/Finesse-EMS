@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
+// import axios from "axios";
 import ProfileAvatar from "../../../components/ProfileAvatar";
 import { useAuth } from "../../../AuthContext/AuthContext";
+import axios from "../../../api/axios";
 import {
   Search,
   Filter,

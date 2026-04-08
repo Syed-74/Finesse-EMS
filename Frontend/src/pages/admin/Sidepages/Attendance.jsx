@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from "../../../api/axios";
 import {
   Calendar,
   MapPin,
@@ -89,7 +89,7 @@ const Attendance = () => {
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/attendance/audit-logs`, {
+      const res = await axios.get(`/attendance/audit-logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setAuditLogs(res.data);
@@ -103,7 +103,7 @@ const Attendance = () => {
   const fetchRegularizationRequests = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/attendance/regularization-requests`, {
+      const res = await axios.get(`/attendance/regularization-requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRegularizationRequests(res.data);
@@ -117,7 +117,7 @@ const Attendance = () => {
   const fetchAttendance = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/attendance/all`, {
+      const res = await axios.get(`/attendance/all`, {
         params: { date: selectedDate, status: statusFilter },
         withCredentials: true,
         headers: { Authorization: `Bearer ${token}` },
@@ -149,7 +149,7 @@ const Attendance = () => {
     e.preventDefault();
     try {
       await axios.put(
-        `http://localhost:5000/api/attendance/${editingRecord._id}`,
+        `/attendance/${editingRecord._id}`,
         editingRecord,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -168,7 +168,7 @@ const Attendance = () => {
       onConfirm: async () => {
         try {
           await axios.post(
-            `http://localhost:5000/api/attendance/approve-regularize`,
+            `/attendance/approve-regularize`,
             { requestId },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -203,7 +203,7 @@ const Attendance = () => {
         }
         try {
           await axios.post(
-            `http://localhost:5000/api/attendance/reject-regularize`,
+            `/attendance/reject-regularize`,
             { requestId, adminRemarks: rejectionReason },
             { headers: { Authorization: `Bearer ${token}` } }
           );

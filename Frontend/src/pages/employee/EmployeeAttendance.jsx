@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Webcam from "react-webcam";
-import axios from "axios";
+import axios from "../../api/axios";
 import {
   Camera,
   MapPin,
@@ -105,7 +105,7 @@ const EmployeeAttendance = () => {
 
   const fetchProfile = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/employees/me", {
+      const res = await axios.get("/employees/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(res.data);
@@ -116,7 +116,7 @@ const EmployeeAttendance = () => {
 
   const fetchTodayLeave = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/leaveapplication/today", {
+      const res = await axios.get("/leaveapplication/today", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTodayLeave(res.data.data);
@@ -127,7 +127,7 @@ const EmployeeAttendance = () => {
 
   const fetchShift = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/shifts/my-shift", {
+      const res = await axios.get("/shifts/my-shift", {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log("Shift Data:", res.data);
@@ -139,7 +139,7 @@ const EmployeeAttendance = () => {
 
   const fetchAttendance = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/attendance/my-attendance", {
+      const res = await axios.get("/attendance/my-attendance", {
         withCredentials: true,
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -242,7 +242,7 @@ const EmployeeAttendance = () => {
       formData.append("location", JSON.stringify(location));
       formData.append("workLocation", effectiveMode === "OFFICE" ? "Office" : "Remote");
 
-      await axios.post("http://localhost:5000/api/attendance/punch-in", formData, {
+      await axios.post("/attendance/punch-in", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -272,7 +272,7 @@ const EmployeeAttendance = () => {
     setLoading(true);
     try {
       await axios.post(
-        "http://localhost:5000/api/attendance/punch-out",
+        "/attendance/punch-out",
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -291,7 +291,7 @@ const EmployeeAttendance = () => {
     setBreakLoading(true);
     try {
       await axios.post(
-        "http://localhost:5000/api/attendance/start-break",
+        "/attendance/start-break",
         { type },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -308,7 +308,7 @@ const EmployeeAttendance = () => {
     setBreakLoading(true);
     try {
       await axios.post(
-        "http://localhost:5000/api/attendance/end-break",
+        "/attendance/end-break",
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -326,7 +326,7 @@ const EmployeeAttendance = () => {
     setLoading(true);
     try {
       await axios.post(
-        "http://localhost:5000/api/attendance/regularize",
+        "/attendance/regularize",
         {
           attendanceId: selectedRecordForRegularize._id,
           requestedInTime,

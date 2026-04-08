@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+// import axios from "axios";
+import axios from "../../api/axios";
 import { toast } from "react-hot-toast";
 import {
     Save,
@@ -49,7 +50,7 @@ const LeavePolicyForm = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/leavepolicy/current");
+            const res = await axios.get("/leavepolicy/current");
             if (res.data.data) {
                 setSettings(res.data.data);
             }
@@ -164,9 +165,9 @@ const LeavePolicyForm = () => {
             };
 
             if (settings._id) {
-                await axios.put(`http://localhost:5000/api/leavepolicy/${settings._id}`, payload);
+                await axios.put(`/leavepolicy/${settings._id}`, payload);
             } else {
-                await axios.post("http://localhost:5000/api/leavepolicy", payload);
+                await axios.post("/leavepolicy", payload);
             }
 
             toast.success("Leave policy synchronized successfully");

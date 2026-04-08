@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios from "../../api/axios";
 import { format, parseISO } from "date-fns";
 import { toast } from "react-hot-toast";
 import { Calendar, Plus, Trash2, Save, Gift, Info, X, AlertTriangle } from "lucide-react";
@@ -30,7 +30,7 @@ const HolidayManagement = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/leavepolicy/current");
+            const res = await axios.get("/leavepolicy/current");
             setSettings(res.data.data);
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -48,7 +48,7 @@ const HolidayManagement = () => {
 
         try {
             setSaving(true);
-            await axios.put(`http://localhost:5000/api/leavepolicy/${settings._id}`, updatedSettings);
+            await axios.put(`/leavepolicy/${settings._id}`, updatedSettings);
             setSettings(updatedSettings);
             setNewHoliday({ holidayName: "", holidayDate: "", holidayType: "Public", isOptional: false });
             toast.success("Holiday added successfully!");
@@ -74,7 +74,7 @@ const HolidayManagement = () => {
 
         try {
             setSaving(true);
-            await axios.put(`http://localhost:5000/api/leavepolicy/${settings._id}`, updatedSettings);
+            await axios.put(`/leavepolicy/${settings._id}`, updatedSettings);
             setSettings(updatedSettings);
             setConfirmModal({ ...confirmModal, show: false });
             toast.success("Holiday deleted successfully!");

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../AuthContext/AuthContext";
-import axios from "axios";
+import axios from "../../../api/axios";
 import toast from "react-hot-toast";
 import {
   User,
@@ -92,7 +92,7 @@ const Settings = () => {
 
     setLoading(true);
     try {
-      const res = await axios.put("http://localhost:5000/api/auth/change-password", {
+      const res = await axios.put("/auth/change-password", {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
@@ -112,7 +112,7 @@ const Settings = () => {
   const handleUpdateSettings = async () => {
     setLoading(true);
     try {
-      const res = await axios.put("http://localhost:5000/api/auth/settings", {
+      const res = await axios.put("/auth/settings", {
         preferences,
         security: securitySettings
       });

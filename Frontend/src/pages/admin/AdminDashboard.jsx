@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+// import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import axios from "../../api/axios";
 import {
   Users,
   CreditCard,
@@ -46,10 +47,10 @@ const AdminDashboard = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const [empRes, leaveStatRes, attendanceRes, activityRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/employees", config),
-        axios.get("http://localhost:5000/api/leaveapplication/stats", config),
-        axios.get("http://localhost:5000/api/attendance/all?date=" + today, config),
-        axios.get("http://localhost:5000/api/leaveapplication", config)
+        axios.get("/employees", config),
+        axios.get("/leaveapplication/stats", config),
+        axios.get("/attendance/all?date=" + today, config),
+        axios.get("/leaveapplication", config)
       ]);
 
       // Process Attendance Status Counts

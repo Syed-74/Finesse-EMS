@@ -1,6 +1,10 @@
 // server.js - Restart Trigger
 import express from "express";
+import dns from "dns";
 import dotenv from "dotenv";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 import cors from "cors";
 import cookieParser from "cookie-parser";
 

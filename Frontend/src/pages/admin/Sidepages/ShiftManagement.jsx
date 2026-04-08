@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../../api/axios";
 import {
   Clock,
   Plus,
@@ -59,10 +59,10 @@ const ShiftManagement = () => {
     try {
       setLoading(true);
       const [shiftsRes, employeesRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/shifts/all", {
+        axios.get("/shifts/all", {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get("http://localhost:5000/api/employees", {
+        axios.get("/employees", {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -91,14 +91,14 @@ const ShiftManagement = () => {
     try {
       if (editingShiftId) {
         await axios.put(
-          `http://localhost:5000/api/shifts/${editingShiftId}`,
+          `/shifts/${editingShiftId}`,
           newShift,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         showSuccess("Shift configuration updated.");
       } else {
         await axios.post(
-          "http://localhost:5000/api/shifts",
+          "/shifts",
           newShift,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -121,7 +121,7 @@ const ShiftManagement = () => {
       type: "danger",
       onConfirm: async () => {
         try {
-          await axios.delete(`http://localhost:5000/api/shifts/${id}`, {
+          await axios.delete(`/shifts/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           showSuccess("Shift removed from system.");
@@ -139,7 +139,7 @@ const ShiftManagement = () => {
       if (!assignment.employeeId || !assignment.shiftId) {
         return showWarning("Selection incomplete: Employee and Shift required.");
       }
-      await axios.post("http://localhost:5000/api/shifts/assign", assignment, {
+      await axios.post("/shifts/assign", assignment, {
         headers: { Authorization: `Bearer ${token}` }
       });
       showSuccess("Employee successfully assigned to shift.");

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
+import axios from "../../../api/axios";
 import {
   BarChart,
   Bar,
@@ -163,10 +163,10 @@ const Reports = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [resSummary, resTrends, resDept, resLeave] = await Promise.all([
-        axios.get("http://localhost:5000/api/reports/summary", { headers }),
-        axios.get(`http://localhost:5000/api/reports/attendance-trend?range=${dateRange}`, { headers }),
-        axios.get("http://localhost:5000/api/reports/department-stats", { headers }),
-        axios.get("http://localhost:5000/api/reports/leave-summary", { headers })
+        axios.get("/reports/summary", { headers }),
+        axios.get(`/reports/attendance-trend?range=${dateRange}`, { headers }),
+        axios.get("/reports/department-stats", { headers }),
+        axios.get("/reports/leave-summary", { headers })
       ]);
 
       setSummary(resSummary.data);

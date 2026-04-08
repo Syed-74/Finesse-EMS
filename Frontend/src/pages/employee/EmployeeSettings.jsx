@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../api/axios";
 import {
   User,
   Mail,
@@ -38,7 +38,7 @@ const EmployeeSettings = () => {
     try {
       const token = localStorage.getItem("token");
       setAuthHeader(token);
-      const res = await axios.get("http://localhost:5000/api/employees/me");
+      const res = await axios.get("/employees/me");
       setProfileData(res.data);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -78,7 +78,7 @@ const EmployeeSettings = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.put("http://localhost:5000/api/employees/me/image", formData, {
+      await axios.put("/employees/me/image", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`
