@@ -242,11 +242,12 @@ const EmployeeAttendance = () => {
       formData.append("location", JSON.stringify(location));
       formData.append("workLocation", effectiveMode === "OFFICE" ? "Office" : "Remote");
 
-      await axios.post("/attendance/punch-in", formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Pass shiftId for backend to correctly calculate timings
+      if (shift && shift._id) {
+        formData.append("shiftId", shift._id);
+      }
+
+      await axios.post("/attendance/punch-in", formData);
 
       setStatus("success");
       setMessage("Punch In Successful");

@@ -1,7 +1,7 @@
 
 import Attendance from "../models/attendance.model.js";
 import Leave from "../models/LeaveApplication.model.js";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 import moment from "moment";
 
 /* =========================

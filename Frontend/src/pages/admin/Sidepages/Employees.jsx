@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-// import axios from "axios";
 import ProfileAvatar from "../../../components/ProfileAvatar";
 import { useAuth } from "../../../AuthContext/AuthContext";
 import axios from "../../../api/axios";
@@ -25,7 +24,7 @@ import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
 
 // Configure base API_URL
-const API_URL = "http://localhost:5000/api/employees";
+const API_URL = "/employees";
 
 const STEPS = [
   { id: 1, title: "Personal", icon: User },
@@ -241,6 +240,45 @@ export default function Employees() {
     } catch (error) {
         console.error("Bulk approval error", error);
         showError("Batch processing failed.");
+    }
+  };
+
+  const handleExport = () => {
+    try {
+      if (employees.length === 0) {
+        showWarning("No records to export.");
+        return;
+      }
+
+      // Filter employees based on active tab for export
+      const dataToExport = filteredEmployees.map(emp => ({
+        Name: `${emp.firstName} ${emp.lastName}`,
+        Email: emp.email,
+        Mobile: emp.mobileNumber || "",
+        Designation: emp.designation || "",
+        Department: emp.department || "",
+        EmploymentType: emp.employmentType,
+        JoinDate: emp.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString() : "",
+        Status: emp.isActive ? "Active" : "Inactive"
+      }));
+
+      const headers = Object.keys(dataToExport[0]).join(",");
+      const csv = [
+        headers,
+        ...dataToExport.map(row => Object.values(row).map(val => `"${val}"`).join(","))
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `Employee_Records_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccess("Export successful.");
+    } catch (err) {
+      console.error("Export failed:", err);
+      showError("Failed to export data.");
     }
   };
 
@@ -698,7 +736,10 @@ export default function Employees() {
           <button onClick={fetchEmployees} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
             <Filter className="w-5 h-5" />
           </button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-all">
+          <button 
+            onClick={handleExport}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-all"
+          >
             <Download className="w-4 h-4" /> Export
           </button>
         </div>

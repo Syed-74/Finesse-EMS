@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
-import axios from "axios";
+import axios from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext();
@@ -36,7 +36,7 @@ const AuthProvider = ({ children }) => {
       // set header so this request uses token (and future requests too)
       setAuthHeader(token);
 
-      const res = await axios.get("http://localhost:5000/api/auth/profile");
+      const res = await axios.get("/auth/profile");
       // backend may return { user: {...} } or directly user object — handle both
       const userPayload = res.data?.user ?? res.data;
       setAdmin(userPayload || null);
@@ -64,7 +64,7 @@ const AuthProvider = ({ children }) => {
   const signOut = async () => {
     try {
       // Optional: notify backend about logout
-      await axios.post("http://localhost:5000/api/auth/logout");
+      await axios.post("/auth/logout");
     } catch (err) {
       console.error("Backend logout failed:", err.message);
     } finally {

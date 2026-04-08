@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 import Attendance from "../models/attendance.model.js";
 import Shift from "../models/shift.model.js";
 import LeaveApplication from "../models/LeaveApplication.model.js";
@@ -8,7 +8,7 @@ const markAbsentCron = () => {
   // Run every hour
   cron.schedule("0 * * * *", async () => {
     console.log("Running Attendance Cron Job: Checking for Absentees...");
-    
+
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);

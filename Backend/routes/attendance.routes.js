@@ -42,7 +42,7 @@ router.post("/regularize", protectEmployee, requestRegularization);
 router.get("/my-attendance", protectEmployee, getMyAttendance);
 router.get("/debug-my-shift", protectEmployee, async (req, res) => {
   try {
-    const Employee = (await import("../models/employee.model.js")).default;
+    const Employee = (await import("../models/Employee.model.js")).default;
     const emp = await Employee.findById(req.employee._id).populate("shiftId");
     res.json({
       employeeId: req.employee._id,

@@ -1,7 +1,7 @@
 import Attendance from "../models/attendance.model.js";
 import Shift from "../models/shift.model.js";
 import LeaveApplication from "../models/LeaveApplication.model.js";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 import Regularization from "../models/regularization.model.js";
 import AuditLog from "../models/auditLog.model.js";
 
@@ -28,7 +28,7 @@ function validateOfficeNetwork(req, employeeProfile) {
   const employeeWorkLocation = employeeProfile.workLocation?.toUpperCase() || "OFFICE";
   const todayDay = new Date().toLocaleString("en-US", { weekday: "long" }).toUpperCase();
 
-  let effectiveWorkMode = "REMOTE"; 
+  let effectiveWorkMode = "REMOTE";
   if (employeeWorkLocation === "OFFICE") {
     effectiveWorkMode = "OFFICE";
   } else if (employeeWorkLocation === "HYBRID") {
@@ -46,11 +46,11 @@ function validateOfficeNetwork(req, employeeProfile) {
     };
   }
 
-  return { 
-    isValid: true, 
-    clientIP, 
+  return {
+    isValid: true,
+    clientIP,
     networkType: isOfficeIP ? "Office" : "Remote",
-    effectiveWorkMode 
+    effectiveWorkMode
   };
 }
 
@@ -84,12 +84,12 @@ function getClientIP(req) {
 export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
-   const today = new Date();
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // 0. Fetch Employee with Shift
     let employeeProfile = await Employee.findById(employeeId).populate("shiftId");
-    
+
     if (!employeeProfile) {
       return res.status(404).json({ message: "Employee profile not found" });
     }
@@ -113,19 +113,35 @@ export const punchIn = async (req, res) => {
     }
 
     // --- 🛠️ Robust Shift Discovery Logic ---
-    let shift = employeeProfile.shiftId;
+    let shift = null;
 
-    // Fallback if shiftId is missing (legacy or unassigned)
+    // 1. Try shiftId from Request Body (Frontend)
+    if (req.body.shiftId && req.body.shiftId !== "null" && req.body.shiftId !== "undefined") {
+      try {
+        shift = await Shift.findById(req.body.shiftId);
+      } catch (err) {
+        console.warn("Invalid shiftId in request body:", req.body.shiftId);
+      }
+    }
+
+    // 2. Fallback to Employee Profile shiftId (Database)
+    if (!shift) {
+      shift = employeeProfile.shiftId;
+    }
+
+    // 3. Final Fallback: Use shift string (Legacy/Manual)
     if (!shift) {
       console.log(`No shiftId for ${employeeProfile.email}, attempting fallback using shift string: ${employeeProfile.shift}`);
       let searchType = employeeProfile.shift || "Morning";
-      if (searchType === "DAY") searchType = "Morning";
-      if (searchType === "NIGHT") searchType = "Night";
 
-      shift = await Shift.findOne({ shiftType: searchType });
-      
+      // Normalize common shift names
+      if (searchType.toUpperCase() === "DAY") searchType = "Morning";
+      if (searchType.toUpperCase() === "NIGHT") searchType = "Night";
+
+      shift = await Shift.findOne({ shiftType: { $regex: new RegExp(`^${searchType}$`, "i") } });
+
       if (!shift) {
-        // Final fallback: any shift
+        // Absolute last resort: Get any available shift
         shift = await Shift.findOne();
       }
 
@@ -177,26 +193,26 @@ export const punchIn = async (req, res) => {
         break;
       }
     }
- 
+
     if (!bestShiftStart) {
-     // If no candidate fits, it means they are either way too early for today's shift 
+      // If no candidate fits, it means they are either way too early for today's shift 
       // or way too late for yesterday's/today's.
       const todayShift = getShiftInstance(today, shift.startTime);
       const allowedFrom = new Date(todayShift.getTime() - EARLY_WINDOW_MS);
-      
+
       if (now < allowedFrom) {
-        return res.status(400).json({ 
-          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}` 
+        return res.status(400).json({
+          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
         });
       }
 
-      return res.status(400).json({ 
-        message: `Outside valid shift window. Shift starts at ${shift.startTime}.` 
+      return res.status(400).json({
+        message: `Outside valid shift window. Shift starts at ${shift.startTime}.`
       });
     }
 
     const effectiveShiftStart = bestShiftStart;
-    
+
     // 3. Status Determination (Late/Present)
     let attendanceStatus = "Present";
     const lateThreshold = new Date(effectiveShiftStart.getTime() + 30 * 60 * 1000);
@@ -225,8 +241,8 @@ export const punchIn = async (req, res) => {
       if (approvedLeave.half === "First Half") {
         // Must punch in AFTER mid-time
         if (now < midTime) {
-          return res.status(400).json({ 
-            message: `First Half Leave: You can only punch in after ${midTime.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}` 
+          return res.status(400).json({
+            message: `First Half Leave: You can only punch in after ${midTime.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
           });
         }
         attendanceStatus = "Half Day";
@@ -254,7 +270,7 @@ export const punchIn = async (req, res) => {
     if (req.body.location) {
       try {
         locationData = JSON.parse(req.body.location);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const selfieUrl = req.file ? `/uploads/${req.file.filename}` : null;
@@ -361,11 +377,11 @@ export const punchOut = async (req, res) => {
     const outTime = new Date();
 
     const [inH, inM] = attendance.inTime.split(":").map(Number);
-    
+
     // Support Overnight Shifts
     const punchInDateTime = new Date(attendance.date);
     punchInDateTime.setHours(inH, inM, 0, 0);
-    
+
     let totalMinutes = Math.floor((outTime - punchInDateTime) / (1000 * 60));
     if (totalMinutes < 0) totalMinutes = 0; // Guard
 
@@ -492,9 +508,9 @@ export const updateAttendance = async (req, res) => {
     }
 
     // Store old data for audit
-    const oldData = { 
-      status: attendance.status, 
-      inTime: attendance.inTime, 
+    const oldData = {
+      status: attendance.status,
+      inTime: attendance.inTime,
       outTime: attendance.outTime,
       remarks: attendance.remarks
     };
@@ -506,26 +522,26 @@ export const updateAttendance = async (req, res) => {
 
     // Recalculate Logic if Times are changed
     if (inTime || outTime) {
-        if (outTime) attendance.outTime = outTime;
-        
-        const [inH, inM] = attendance.inTime.split(":").map(Number);
-        const [outH, outM] = attendance.outTime.split(":").map(Number);
+      if (outTime) attendance.outTime = outTime;
 
-        // Handle overnight calculation for manual edits
-        let totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
-        if (totalMinutes < 0) totalMinutes += 1440; // Add 24 hours if outTime < inTime
+      const [inH, inM] = attendance.inTime.split(":").map(Number);
+      const [outH, outM] = attendance.outTime.split(":").map(Number);
 
-        attendance.totalWorkingMinutes = Math.max(0, totalMinutes);
+      // Handle overnight calculation for manual edits
+      let totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+      if (totalMinutes < 0) totalMinutes += 1440; // Add 24 hours if outTime < inTime
 
-        // Fetch shift with robust fallback
-        let emp = await Employee.findById(attendance.employee).populate("shiftId");
-        
-        if (!emp?.shiftId) {
-          return res.status(400).json({ message: "No shift assigned to employee." });
-        }
-        const dur = emp?.shiftId?.duration ? (emp.shiftId.duration * 60) : 540;
-        attendance.overtimeMinutes = Math.max(0, totalMinutes - dur);
+      attendance.totalWorkingMinutes = Math.max(0, totalMinutes);
+
+      // Fetch shift with robust fallback
+      let emp = await Employee.findById(attendance.employee).populate("shiftId");
+
+      if (!emp?.shiftId) {
+        return res.status(400).json({ message: "No shift assigned to employee." });
       }
+      const dur = emp?.shiftId?.duration ? (emp.shiftId.duration * 60) : 540;
+      attendance.overtimeMinutes = Math.max(0, totalMinutes - dur);
+    }
 
     await attendance.save();
 
@@ -536,9 +552,9 @@ export const updateAttendance = async (req, res) => {
       targetType: "Attendance",
       targetId: id,
       oldData,
-      newData: { 
-        status: attendance.status, 
-        inTime: attendance.inTime, 
+      newData: {
+        status: attendance.status,
+        inTime: attendance.inTime,
         outTime: attendance.outTime,
         remarks: attendance.remarks
       },
@@ -628,7 +644,7 @@ export const endBreak = async (req, res) => {
 
     // Update total breakdown
     attendance.totalBreakMinutes = attendance.breaks.reduce((total, b) => total + (b.duration || 0), 0);
-    
+
     await attendance.save();
     res.json({ message: "Break ended. Duration: " + activeBreak.duration + "m", attendance });
   } catch (error) {
@@ -698,7 +714,7 @@ export const approveRegularization = async (req, res) => {
     attendance.inTime = request.requestedInTime;
     attendance.outTime = request.requestedOutTime;
     attendance.status = "Present"; // Corrected to Title Case for consistency
-    
+
     // Recalculate duration
     const [inH, inM] = attendance.inTime.split(":").map(Number);
     const [outH, outM] = attendance.outTime.split(":").map(Number);

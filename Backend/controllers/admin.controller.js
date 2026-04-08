@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import Admin from "../models/admin.model.js";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 import microsoftGraphService from "../services/microsoftGraph.service.js";
 import authService from "../services/auth.service.js";
 import employeeService from "../services/employee.service.js";
@@ -75,9 +75,9 @@ export const loginAdmin = async (req, res) => {
       return res.status(403).json({ message: "Your account is pending approval by an administrator." });
     }
     if (admin.status === "REJECTED") {
-        return res.status(403).json({ 
-            message: `Your account registration was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}` 
-        });
+      return res.status(403).json({
+        message: `Your account registration was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}`
+      });
     }
     if (!admin.isActive) {
       return res.status(403).json({ message: "Account is inactive" });
@@ -207,17 +207,17 @@ export const ssoLogin = async (req, res) => {
 
     // Check Approval Status
     if (employee.status === "PENDING") {
-        return res.status(403).json({ 
-            message: "Your registration is successful! Your account is currently pending approval by an administrator." 
-        });
+      return res.status(403).json({
+        message: "Your registration is successful! Your account is currently pending approval by an administrator."
+      });
     }
     if (employee.status === "REJECTED") {
-        return res.status(403).json({ 
-            message: `Your account registration was rejected. Reason: ${employee.rejectionReason || 'No reason provided.'}` 
-        });
+      return res.status(403).json({
+        message: `Your account registration was rejected. Reason: ${employee.rejectionReason || 'No reason provided.'}`
+      });
     }
     if (!employee.isActive) {
-        return res.status(403).json({ message: "Your account is currently inactive. Please contact your administrator." });
+      return res.status(403).json({ message: "Your account is currently inactive. Please contact your administrator." });
     }
 
     // 5. Generate Token

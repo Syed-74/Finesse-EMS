@@ -1,5 +1,5 @@
 import Shift from "../models/shift.model.js";
-import Employee from "../models/employee.model.js";
+import Employee from "../models/Employee.model.js";
 
 // Create Shift
 export const createShift = async (req, res) => {
@@ -82,7 +82,7 @@ export const getMyShift = async (req, res) => {
   try {
     const employeeId = req.employee._id;
     const employeeProfile = await Employee.findById(employeeId).populate("shiftId");
-    
+
     if (!employeeProfile || !employeeProfile.shiftId) {
       let searchType = employeeProfile?.shift || "Morning";
       // Map legacy "DAY" to "Morning"
@@ -93,7 +93,7 @@ export const getMyShift = async (req, res) => {
       if (fallbackShift) {
         return res.status(200).json(fallbackShift);
       }
-      
+
       // Final attempt: just get the first available shift
       const anyShift = await Shift.findOne();
       if (anyShift) {
