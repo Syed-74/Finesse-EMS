@@ -1,7 +1,9 @@
 import axios from "axios";
 
+
+// http://localhost:5000/api
 const instance = axios.create({
-    baseURL: 'https://finesse-ems.onrender.com/api', // Reverting to include /api as per backend mounting
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api',
     headers: {
     },
     withCredentials: true,
