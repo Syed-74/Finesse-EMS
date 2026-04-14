@@ -33,8 +33,7 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "http://localhost:3000",
-  "http://localhost:5173", // Common Vite port
+  "http://localhost:5173 ", "https://finesse-ems-git-main-syed-nusraths-projects.vercel.app/", // Common Vite port
 ];
 
 app.use(
