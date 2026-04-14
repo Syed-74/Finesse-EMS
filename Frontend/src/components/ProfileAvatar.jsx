@@ -1,17 +1,17 @@
 import React from "react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
 /**
  * ProfileAvatar Component
- * 
  * Reusable component to render employee/admin profile images with consistent styling and fallback logic.
- * 
  * Props:
  * @param {Object} user - The user object (admin or employee) containing firstName, lastName, and profileImage.
  * @param {string} className - Optional additional CSS classes.
  * @param {boolean} showStatus - Optional indicator to show online status (future proofing).
  * @param {string} uploadPath - Base URL for uploads. Defaults to http://localhost:5000.
+
  */
-const ProfileAvatar = ({ user, className = "", showStatus = false, uploadPath = "http://localhost:5000" }) => {
+const ProfileAvatar = ({ user, className = "", showStatus = false, uploadPath = API_BASE_URL }) => {
     // Construct image URL safely
     const getImageUrl = (path) => {
         if (!path) return null;

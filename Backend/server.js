@@ -52,6 +52,9 @@ app.use(
   })
 );
 
+app.get("/test", (req, res) => {
+  res.send("Welcome to the Employee Management System API!.And this is a test endpoint to check if the server is running properly.");
+});
 
 // Routes
 app.use("/api/auth", authRoutes);

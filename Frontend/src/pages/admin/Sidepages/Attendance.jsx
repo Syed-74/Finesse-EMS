@@ -33,6 +33,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
+
 /* =========================
    NETWORK BADGE HELPER
 ========================= */
@@ -497,7 +499,7 @@ const Attendance = () => {
                             <div className="flex items-center gap-3">
                               {rec.employee?.profileImage ? (
                                 <img
-                                  src={`http://localhost:5000${rec.employee.profileImage}`}
+                                  src={`${API_BASE_URL}/${rec.employee.profileImage}`}
                                   className="w-9 h-9 rounded-xl object-cover border border-slate-100"
                                   alt=""
                                 />
@@ -785,7 +787,7 @@ const Attendance = () => {
               {/* Selfie */}
               <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-sm relative group">
                 <img
-                  src={`http://localhost:5000${viewingProof.selfieUrl}`}
+                  src={`${API_BASE_URL}${viewingProof.selfieUrl}`}
                   className="w-full h-full object-cover"
                   alt="Selfie proof"
                 />

@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { CheckCircle, XCircle, Clock, User, Calendar, MessageSquare, X } from "lucide-react";
 import ProfileAvatar from "../ProfileAvatar";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
 const LeaveRequestsTable = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -149,7 +150,7 @@ const LeaveRequestsTable = () => {
                                 <td className="p-6 text-center">
                                     {req.attachment ? (
                                         <a
-                                            href={`http://localhost:5000/uploads/${req.attachment}`}
+                                            href={`${API_BASE_URL}/uploads/${req.attachment}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all uppercase tracking-tighter inline-flex items-center gap-1"
@@ -249,7 +250,7 @@ const LeaveRequestsTable = () => {
                                 {modal.attachment ? (
                                     <div className="flex gap-3">
                                         <a
-                                            href={`http://localhost:5000/uploads/${modal.attachment}`}
+                                            href={`${API_BASE_URL}/uploads/${modal.attachment}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex-1 px-4 py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-xs font-black uppercase text-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
@@ -257,7 +258,7 @@ const LeaveRequestsTable = () => {
                                             <CheckCircle size={14} /> View Document
                                         </a>
                                         <a
-                                            href={`http://localhost:5000/uploads/${modal.attachment}`}
+                                            href={`${API_BASE_URL}/uploads/${modal.attachment}`}
                                             download
                                             className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase text-center hover:bg-indigo-700 transition-all shadow-md flex items-center justify-center gap-2"
                                         >

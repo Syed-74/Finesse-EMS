@@ -21,6 +21,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
 
+
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
+
 const EmployeeSettings = () => {
   const { setAuthHeader } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -172,7 +176,7 @@ const EmployeeSettings = () => {
               <div className="relative mb-8">
                 <div className="w-36 h-36 md:w-40 md:h-40 rounded-[2.5rem] border-[6px] border-white shadow-2xl overflow-hidden bg-white ring-1 ring-slate-100">
                   <img
-                    src={previewImage || (profileData.profileImage ? `http://localhost:5000${profileData.profileImage}` : "https://ui-avatars.com/api/?name=" + profileData.firstName + "+" + profileData.lastName + "&background=6366f1&color=fff&size=200")}
+                    src={previewImage || (profileData.profileImage ? `${API_BASE_URL}/${profileData.profileImage}` : "https://ui-avatars.com/api/?name=" + profileData.firstName + "+" + profileData.lastName + "&background=6366f1&color=fff&size=200")}
                     alt="Profile"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />

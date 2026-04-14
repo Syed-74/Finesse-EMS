@@ -29,6 +29,8 @@ import {
   Briefcase
 } from "lucide-react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
+
 /* =========================================
    COMPONENT: SMART CALENDAR VIEW
 ========================================= */
@@ -601,7 +603,7 @@ const EmployeeLeaves = () => {
                     {item.attachment && (
                       <div className="mt-2">
                         <a
-                          href={`http://localhost:5000/uploads/${item.attachment}`}
+                          href={`${API_BASE_URL}/uploads/${item.attachment}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg w-fit"
