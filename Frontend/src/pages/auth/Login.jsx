@@ -39,7 +39,7 @@ const Login = () => {
   }, [admin, loading, navigate]);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
-
+  const FRONT_END_ROOT_URL = import.meta.env.FRONT_END_ROOT_URL || 'http://localhost:3000';
 
   // ---------------- NORMAL LOGIN ----------------
   const [formData, setFormData] = useState({ username: "", password: "" });
@@ -67,7 +67,7 @@ const Login = () => {
       // Use redirect with proper configuration
       await instance.loginRedirect({
         ...loginRequest,
-        redirectUri: API_BASE_URL, // Ensure this matches your MSAL config
+        redirectUri: FRONT_END_ROOT_URL, // Ensure this matches your MSAL config
         prompt: "select_account",
         extraScopesToConsent: ["User.Read"],
       });
