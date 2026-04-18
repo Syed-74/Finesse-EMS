@@ -67,7 +67,7 @@ const Login = () => {
       // Use redirect with proper configuration
       await instance.loginRedirect({
         ...loginRequest,
-        redirectUri: FRONT_END_ROOT_URL, // Ensure this matches your MSAL config
+        redirectUri: 'https://finesse-ems.vercel.app', // Ensure this matches your MSAL config
         prompt: "select_account",
         extraScopesToConsent: ["User.Read"],
       });
