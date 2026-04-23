@@ -99,18 +99,21 @@ const Login = () => {
 
       const token = tokenRes.accessToken;
 
-      // ✅ OPTIONAL: GET PROFILE
-      const profile = await axios.get(
-        "https://graph.microsoft.com/v1.0/me",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // // ✅ OPTIONAL: GET PROFILE
+      // const profile = await axios.get(
+      //   "https://graph.microsoft.com/v1.0/me",
+      //   {
+      //     headers: {
+      //       Authorization: `Bearer ${token}`,
+      //     },
+      //     withCredentials: false, // ✅ VERY IMPORTANT
+      //   }
+      // );
 
       console.log("Microsoft profile:", profile.data);
 
       // ✅ BACKEND CALL (FIXED URL)
-      const res = await axios.post(
+      axios.post(
         `${API_BASE_URL}/auth/sso-login`,
         {
           name: account.name,
@@ -118,7 +121,7 @@ const Login = () => {
           accessToken: token,
         },
         {
-          withCredentials: true,
+          withCredentials: true // ✅ ensures cookies/session if backend uses it
         }
       );
 
