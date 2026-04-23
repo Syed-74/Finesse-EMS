@@ -113,7 +113,7 @@ const Login = () => {
       // console.log("Microsoft profile:", profile.data);
 
       // ✅ BACKEND CALL (FIXED URL)
-      axios.post(
+      const res = await axios.post(
         `${API_BASE_URL}/auth/sso-login`,
         {
           name: account.name,
