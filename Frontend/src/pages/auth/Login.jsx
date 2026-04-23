@@ -110,7 +110,7 @@ const Login = () => {
       //   }
       // );
 
-      console.log("Microsoft profile:", profile.data);
+      // console.log("Microsoft profile:", profile.data);
 
       // ✅ BACKEND CALL (FIXED URL)
       axios.post(
