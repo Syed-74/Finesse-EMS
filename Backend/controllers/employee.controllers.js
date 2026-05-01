@@ -113,13 +113,15 @@ export const getEmployeeById = async (req, res) => {
 ========================= */
 export const updateEmployee = async (req, res) => {
     try {
+        console.log(`Updating employee ${req.params.id}. Work Location: ${req.body.workLocation}, Office Days: ${req.body.officeDays}`);
+
         const updatedEmployee = await Employee.findByIdAndUpdate(
             req.params.id,
             {
                 ...req.body,
                 updatedBy: req.admin._id,
             },
-            { new: true }
+            { new: true, runValidators: true }
         ).select("-password");
 
         if (!updatedEmployee) {

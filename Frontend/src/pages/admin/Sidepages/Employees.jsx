@@ -290,7 +290,7 @@ export default function Employees() {
       designation: emp.designation || "",
       department: emp.department || "",
       employmentType: emp.employmentType || "FULL_TIME",
-      workLocation: emp.workLocation || "OFFICE",
+      workLocation: emp.workLocation || "Onsite",
       officeDays: emp.officeDays || [],
       shift: emp.shift || "DAY",
       attendanceRequired: emp.attendanceRequired ?? true,
@@ -488,13 +488,13 @@ export default function Employees() {
                 value={currentEmployee.workLocation}
                 onChange={e => setCurrentEmployee({ ...currentEmployee, workLocation: e.target.value })}
               >
-                <option value="OFFICE">Office</option>
-                <option value="REMOTE">Remote</option>
-                <option value="HYBRID">Hybrid</option>
+                <option value="Onsite">Onsite</option>
+                <option value="Remote">Remote</option>
+                <option value="Hybrid">Hybrid</option>
               </select>
             </div>
 
-            {currentEmployee.workLocation === "HYBRID" && (
+            {currentEmployee.workLocation === "Hybrid" && (
               <div className="col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-3 text-center">
                   Select Office Days (Hybrid)
@@ -522,7 +522,7 @@ export default function Employees() {
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-gray-500 mt-2 italic text-center">Selected days will require Office WiFi for punch-in.</p>
+                <p className="text-[10px] text-gray-500 mt-2 italic text-center">Selected days will be marked as Office work mode.</p>
               </div>
             )}
             <div>
@@ -871,6 +871,7 @@ export default function Employees() {
                       <div className="flex items-center justify-end gap-2">
                         {emp.status === "PENDING" ? (
                             <>
+                                <button onClick={() => openEdit(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="Edit"><Edit3 className="w-4 h-4" /></button>
                                 <button onClick={() => confirmActionModal("approve", emp)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md" title="Approve"><UserCheck className="w-5 h-5" /></button>
                                 <button onClick={() => confirmActionModal("reject", emp)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Reject"><UserX className="w-5 h-5" /></button>
                             </>
@@ -930,6 +931,7 @@ export default function Employees() {
             <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
               {emp.status === "PENDING" ? (
                   <>
+                    <button onClick={() => openEdit(emp)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded text-sm font-medium">Edit</button>
                     <button onClick={() => confirmActionModal("approve", emp)} className="flex-1 py-1.5 text-green-600 bg-green-50 rounded text-sm font-bold">Approve</button>
                     <button onClick={() => confirmActionModal("reject", emp)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded text-sm font-bold">Reject</button>
                   </>

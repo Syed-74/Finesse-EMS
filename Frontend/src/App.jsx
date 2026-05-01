@@ -20,6 +20,7 @@ import Employees from "./pages/admin/Sidepages/Employees";
 import CreateTask from "./pages/admin/Sidepages/CreateTask";
 import TaskList from "./pages/admin/Sidepages/TaskList";
 import TaskDetailAdmin from "./pages/admin/Sidepages/TaskDetailAdmin";
+import OfficeIPConfig from "./pages/admin/Sidepages/OfficeIPConfig";
 import EmployeeTask from "./pages/employee/EmployeeTask";
 import { Toaster } from "react-hot-toast";
 import { ConfirmProvider } from "./context/ConfirmContext";
@@ -45,6 +46,7 @@ function App() {
           <Route path="/admin/tasks" element={<TaskList />} />
           <Route path="/admin/tasks/create" element={<CreateTask />} />
           <Route path="/admin/tasks/:id" element={<TaskDetailAdmin />} />
+          <Route path="/admin/office-config" element={<OfficeIPConfig />} />
         </Route>
 
         {/* EMPLOYEE */}

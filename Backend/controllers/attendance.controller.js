@@ -4,79 +4,7 @@ import LeaveApplication from "../models/LeaveApplication.model.js";
 import Employee from "../models/Employee.model.js";
 import Regularization from "../models/regularization.model.js";
 import AuditLog from "../models/auditLog.model.js";
-
-/* =========================
-   🌐 IP VALIDATION CONFIG
-========================= */
-// ✅ Add more IPs here for scalability (supports IPv4 + IPv6-mapped)
-const allowedOfficeIPs = [
-  "192.168.29.91",
-  "::ffff:192.168.29.91", // IPv6-mapped IPv4
-  "::1",                  // localhost (dev)
-  "127.0.0.1"             // localhost (dev)
-];
-
-/**
- * Helper to validate if the current request is on the authorized office network.
- * Used for OFFICE mode and HYBRID (on office days).
- */
-function validateOfficeNetwork(req, employeeProfile) {
-  const rawIP = getClientIP(req);
-  const clientIP = normalizeIP(rawIP);
-  const isOfficeIP = allowedOfficeIPs.includes(clientIP);
-
-  const employeeWorkLocation = employeeProfile.workLocation?.toUpperCase() || "OFFICE";
-  const todayDay = new Date().toLocaleString("en-US", { weekday: "long" }).toUpperCase();
-
-  let effectiveWorkMode = "REMOTE";
-  if (employeeWorkLocation === "OFFICE") {
-    effectiveWorkMode = "OFFICE";
-  } else if (employeeWorkLocation === "HYBRID") {
-    const isOfficeDay = (employeeProfile.officeDays || []).some(
-      day => day.toUpperCase() === todayDay
-    );
-    effectiveWorkMode = isOfficeDay ? "OFFICE" : "REMOTE";
-  }
-
-  if (effectiveWorkMode === "OFFICE" && !isOfficeIP) {
-    return {
-      isValid: false,
-      clientIP,
-      message: `Onsite attendance requires Office WiFi. Your current IP (${clientIP}) is not authorized.`
-    };
-  }
-
-  return {
-    isValid: true,
-    clientIP,
-    networkType: isOfficeIP ? "Office" : "Remote",
-    effectiveWorkMode
-  };
-}
-
-/**
- * Normalize IPv6-mapped IPv4 addresses to plain IPv4.
- * e.g., "::ffff:192.168.29.24" → "192.168.29.24"
- */
-function normalizeIP(ip) {
-  if (!ip) return "";
-  if (ip.startsWith("::ffff:")) {
-    return ip.replace("::ffff:", "");
-  }
-  return ip;
-}
-
-/**
- * Get the real client IP, honoring X-Forwarded-For when behind a proxy.
- */
-function getClientIP(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (forwarded) {
-    // X-Forwarded-For can be a comma-separated list; take first
-    return forwarded.split(",")[0].trim();
-  }
-  return req.ip || req.connection?.remoteAddress || "";
-}
+import { validateAttendanceLocation } from "../services/attendanceValidation.service.js";
 
 /* =========================
    PUNCH IN
@@ -84,6 +12,7 @@ function getClientIP(req) {
 export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
+    console.log(`🚀 Punch-in Attempt: ${req.employee.email}`);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -252,18 +181,15 @@ export const punchIn = async (req, res) => {
         attendanceStatus = "Half Day";
       }
     }
-    // 4. Network & Work Location Validation
-    const networkValidation = validateOfficeNetwork(req, employeeProfile);
-    if (!networkValidation.isValid) {
-      return res.status(403).json({
-        code: "OFFICE_IP_REQUIRED",
-        message: networkValidation.message,
-        detectedIP: networkValidation.clientIP
-      });
+    // 4. Work Location & IP Validation
+    const validation = await validateAttendanceLocation(req, employeeProfile);
+
+    if (!validation.allowed) {
+      return res.status(403).json({ message: validation.message });
     }
-    const networkType = networkValidation.networkType;
-    const clientIP = networkValidation.clientIP;
-    const effectiveWorkMode = networkValidation.effectiveWorkMode;
+
+    const effectiveWorkMode = validation.workMode;
+
 
     // 5. Process Location & Selfie
     let locationData = {};
@@ -284,17 +210,12 @@ export const punchIn = async (req, res) => {
       date: today,
       inTime: currentTimeStr,
       status: attendanceStatus, // Save the determined status (Late/Present/Half Day)
-      workLocation: effectiveWorkMode === "OFFICE" ? "Office" : "Remote",
+      workLocation: effectiveWorkMode,
       lateByMinutes,
       selfieUrl,
       location: locationData,
       shiftType: shift.shiftType, // Save the shift type
       autoMarked: false, // It's a manual punch
-      deviceInfo: {
-        userAgent: req.headers["user-agent"],
-        ip: clientIP,
-        networkType: networkType
-      }
     };
 
     let attendance;
@@ -316,26 +237,6 @@ export const punchIn = async (req, res) => {
   }
 };
 
-// 📏 Helper: Haversine Formula for Distance
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of the earth in km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    ;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d;
-}
-
-function deg2rad(deg) {
-  return deg * (Math.PI / 180)
-}
-
-
 /* =========================
    PUNCH OUT
 ========================= */
@@ -347,15 +248,8 @@ export const punchOut = async (req, res) => {
     const employeeProfile = await Employee.findById(employeeId).populate("shiftId");
     const shift = employeeProfile?.shiftId;
 
-    // 0. Network Validation for Onsite
-    const networkValidation = validateOfficeNetwork(req, employeeProfile);
-    if (!networkValidation.isValid) {
-      return res.status(403).json({
-        code: "OFFICE_IP_REQUIRED",
-        message: networkValidation.message,
-        detectedIP: networkValidation.clientIP
-      });
-    }
+    // Network validation removed as per requirement.
+
 
     const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
     const today = new Date();
@@ -404,7 +298,6 @@ export const punchOut = async (req, res) => {
   }
 };
 
-
 /* =========================
    GET MY ATTENDANCE
 ========================= */
@@ -420,7 +313,6 @@ export const getMyAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 /* =========================
    ADMIN: GET EMPLOYEE ATTENDANCE
@@ -438,7 +330,6 @@ export const getEmployeeAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 /* =========================
    ADMIN: GET ALL ATTENDANCE
@@ -492,7 +383,6 @@ export const getAllAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 /* =========================
    ADMIN: UPDATE ATTENDANCE
@@ -580,16 +470,8 @@ export const startBreak = async (req, res) => {
     if (!attendance) return res.status(404).json({ message: "Check-in required before taking a break." });
     if (attendance.outTime) return res.status(400).json({ message: "Already punched out for today." });
 
-    // Network Validation
-    const employeeProfile = await Employee.findById(employeeId);
-    const networkValidation = validateOfficeNetwork(req, employeeProfile);
-    if (!networkValidation.isValid) {
-      return res.status(403).json({
-        code: "OFFICE_IP_REQUIRED",
-        message: networkValidation.message,
-        detectedIP: networkValidation.clientIP
-      });
-    }
+    // Network validation removed as per requirement.
+
 
     const lastBreak = attendance.breaks[attendance.breaks.length - 1];
     if (lastBreak && !lastBreak.endTime) {
@@ -618,16 +500,8 @@ export const endBreak = async (req, res) => {
     const attendance = await Attendance.findOne({ employee: employeeId, date: today });
     if (!attendance) return res.status(404).json({ message: "Attendance record not found." });
 
-    // Network Validation
-    const employeeProfile = await Employee.findById(employeeId);
-    const networkValidation = validateOfficeNetwork(req, employeeProfile);
-    if (!networkValidation.isValid) {
-      return res.status(403).json({
-        code: "OFFICE_IP_REQUIRED",
-        message: networkValidation.message,
-        detectedIP: networkValidation.clientIP
-      });
-    }
+    // Network validation removed as per requirement.
+
 
     const activeBreak = attendance.breaks.find(b => !b.endTime);
     if (!activeBreak) return res.status(400).json({ message: "No active break found." });

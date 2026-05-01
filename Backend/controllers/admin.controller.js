@@ -62,37 +62,111 @@ export const registerAdmin = async (req, res) => {
 /* =========================
    LOGIN ADMIN
 ========================= */
+// export const loginAdmin = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     console.log("Login Attempt:", { email, password });
+
+//     const admin = await Admin.findOne({ email });
+//     if (!admin) {
+//       return res.status(404).json({ message: "Admin not found" });
+//     }
+
+//     if (!admin.isActive && admin.status === "PENDING") {
+//       return res.status(403).json({ message: "Your account is pending approval by an administrator." });
+//     }
+//     if (admin.status === "REJECTED") {
+//       return res.status(403).json({
+//         message: `Your account registration was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}`
+//       });
+//     }
+//     if (!admin.isActive) {
+//       return res.status(403).json({ message: "Account is inactive" });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, admin.password);
+//     if (!isMatch) {
+//       return res.status(401).json({ message: "Invalid credentials" });
+//     }
+
+//     const token = authService.generateToken(admin);
+
+//     // Update security info
+//     admin.security.lastLoginIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+//     admin.security.lastLoginTime = new Date();
+//     await admin.save();
+
+//     res.json({
+//       message: "Login successful",
+//       token,
+//       admin: {
+//         id: admin._id,
+//         firstName: admin.firstName,
+//         lastName: admin.lastName,
+//         email: admin.email,
+//         role: admin.role,
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+// ✅ FIXED loginAdmin
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("Login Attempt:", { email, password });
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
     const admin = await Admin.findOne({ email });
+
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
     if (!admin.isActive && admin.status === "PENDING") {
-      return res.status(403).json({ message: "Your account is pending approval by an administrator." });
-    }
-    if (admin.status === "REJECTED") {
       return res.status(403).json({
-        message: `Your account registration was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}`
+        message: "Account pending approval",
       });
     }
+
     if (!admin.isActive) {
-      return res.status(403).json({ message: "Account is inactive" });
+      return res.status(403).json({ message: "Account inactive" });
+    }
+
+    // Check if password exists (SSO users might not have one yet)
+    if (!admin.password) {
+      if (admin.isSSOUser) {
+        return res.status(401).json({ 
+          message: "No password set. Please login using SSO or set your password in settings first." 
+        });
+      }
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
+
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     const token = authService.generateToken(admin);
 
-    // Update security info
-    admin.security.lastLoginIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    // ✅ FIX: ensure security object exists
+    if (!admin.security) {
+      admin.security = {};
+    }
+
+    admin.security.lastLoginIP =
+      req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
     admin.security.lastLoginTime = new Date();
+
     await admin.save();
 
     res.json({
@@ -100,17 +174,15 @@ export const loginAdmin = async (req, res) => {
       token,
       admin: {
         id: admin._id,
-        firstName: admin.firstName,
-        lastName: admin.lastName,
         email: admin.email,
         role: admin.role,
       },
     });
   } catch (error) {
+    console.error("LOGIN ERROR:", error); // ✅ important
     res.status(500).json({ message: error.message });
   }
 };
-
 /* =========================
    GET ADMIN PROFILE
 ========================= */
@@ -237,7 +309,9 @@ export const ssoLogin = async (req, res) => {
         lastName: admin.lastName,
         email: admin.email,
         role: admin.role,
-        profileImage: admin.profileImage
+        profileImage: admin.profileImage,
+        isSSOUser: admin.isSSOUser || false,
+        hasPassword: !!admin.password
       },
     });
   } catch (error) {
@@ -263,15 +337,15 @@ export const logoutAdmin = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const admin = await Admin.findById(req.admin.id);
+    const admin = await Admin.findById(req.user._id);
 
     if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // SSO users might not have a password
-    if (admin.ssoProvider && !admin.password) {
-      return res.status(400).json({ message: "SSO users cannot change password via this method" });
+    // SSO users might not have a password yet
+    if (!admin.password) {
+      return res.status(400).json({ message: "No password set for this account. Please use 'Set Password' first." });
     }
 
     const isMatch = await bcrypt.compare(currentPassword, admin.password);
@@ -285,12 +359,74 @@ export const changePassword = async (req, res) => {
       return res.status(400).json({ message: "New password cannot be the same as current password" });
     }
 
+    if (newPassword.length < 6 || newPassword.length > 20) {
+      return res.status(400).json({ message: "Password must be between 6 and 20 characters" });
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     admin.password = hashedPassword;
     await admin.save();
 
-    res.json({ message: "Password changed successfully. Please log in again." });
+    // Also sync with Employee model if it exists
+    const employee = await Employee.findOne({ email: admin.email });
+    if (employee) {
+      employee.password = hashedPassword;
+      await employee.save();
+    }
+
+    res.json({ message: "Password changed successfully!" });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* =========================
+   SET INITIAL PASSWORD (FOR SSO USERS)
+   ========================= */
+export const setPassword = async (req, res) => {
+  try {
+    console.log("SET_PASSWORD_BODY:", req.body);
+    const { password, confirmPassword } = req.body;
+
+    // 1. Validation
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" });
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    if (password.length < 6 || password.length > 20) {
+      return res.status(400).json({ message: "Password must be between 6 and 20 characters" });
+    }
+
+    // 2. Find User
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 3. Prevent overwriting if already set (optional security)
+    if (admin.password) {
+      return res.status(400).json({ message: "Password already set. Use Change Password instead." });
+    }
+
+    // 4. Hash and Save
+    const hashedPassword = await bcrypt.hash(password, 10);
+    admin.password = hashedPassword;
+    await admin.save();
+
+    // 5. Also sync with Employee model if it exists
+    const employee = await Employee.findOne({ email: admin.email });
+    if (employee) {
+      employee.password = hashedPassword;
+      await employee.save();
+    }
+
+    res.json({ message: "Password set successfully! You can now login using email and password." });
+  } catch (error) {
+    console.error("SET PASSWORD ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };

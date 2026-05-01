@@ -33,24 +33,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
-
-/* =========================
-   NETWORK BADGE HELPER
-========================= */
-const getNetworkBadge = (rec) => {
-  const nt = rec?.deviceInfo?.networkType;
-  if (nt === "Office") return { icon: "🟢", label: "Office Network", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-  if (nt === "Unauthorized") return { icon: "🔴", label: "Unauthorized", cls: "bg-red-50 text-red-700 border-red-200" };
-  return { icon: "🔵", label: "Remote Network", cls: "bg-blue-50 text-blue-700 border-blue-200" };
-};
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 const Attendance = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [statusFilter, setStatusFilter] = useState("All");
-  const [networkFilter, setNetworkFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("attendance"); // attendance | regularization | audit
   const [regularizationRequests, setRegularizationRequests] = useState([]);
@@ -76,7 +65,7 @@ const Attendance = () => {
   const token = localStorage.getItem("token");
 
   // Stats
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, leave: 0, unauthorized: 0 });
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, leave: 0 });
 
   useEffect(() => {
     if (activeTab === "attendance") {
@@ -134,15 +123,13 @@ const Attendance = () => {
   };
 
   const calculateStats = (data) => {
-    const s = { present: 0, absent: 0, late: 0, leave: 0, unauthorized: 0, total: data.length };
+    const s = { present: 0, absent: 0, late: 0, leave: 0, total: data.length };
     data.forEach((r) => {
       const status = r.status?.toUpperCase();
       if ((status === "PRESENT" || status === "LATE") && r.lateByMinutes > 0) s.late++;
       else if (status === "PRESENT") s.present++;
       else if (status === "ABSENT") s.absent++;
       else if (status === "LEAVE") s.leave++;
-
-      if (r.deviceInfo?.networkType === "Unauthorized") s.unauthorized++;
     });
     setStats(s);
   };
@@ -241,13 +228,7 @@ const Attendance = () => {
       r.employee?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.employee?.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const networkMatch =
-      networkFilter === "All" ||
-      (networkFilter === "Office" && r.deviceInfo?.networkType === "Office") ||
-      (networkFilter === "Remote" && (r.deviceInfo?.networkType === "Remote" || !r.deviceInfo?.networkType)) ||
-      (networkFilter === "Unauthorized" && r.deviceInfo?.networkType === "Unauthorized");
-
-    return nameMatch && networkMatch;
+    return nameMatch;
   });
 
   const handleExportCSV = () => {
@@ -259,7 +240,7 @@ const Attendance = () => {
       new Date(r.date).toLocaleDateString(),
       r.inTime || "-",
       r.outTime || "-",
-      r.workLocation || "Office",
+      r.workLocation || "Onsite",
       r.status,
       r.lateByMinutes || 0
     ]);
@@ -440,19 +421,7 @@ const Attendance = () => {
                   </select>
                   <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
-                <div className="relative">
-                  <select
-                    className="appearance-none pl-3 pr-8 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium bg-white"
-                    value={networkFilter}
-                    onChange={(e) => setNetworkFilter(e.target.value)}
-                  >
-                    <option value="All">All Networks</option>
-                    <option value="Office">🟢 Office Network</option>
-                    <option value="Remote">🔵 Remote Network</option>
-                    <option value="Unauthorized">🔴 Unauthorized</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
+
                 <button 
                   onClick={handleExportCSV}
                   className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
@@ -468,7 +437,7 @@ const Attendance = () => {
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    {["Employee", "In Time", "Out Time", "Duration", "Network Status", "Proof", "Status", "Actions"].map((h) => (
+                    {["Employee", "In Time", "Out Time", "Duration", "Proof", "Status", "Actions"].map((h) => (
                       <th key={h} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                         {h}
                       </th>
@@ -478,21 +447,20 @@ const Attendance = () => {
                 <tbody className="divide-y divide-slate-50">
                   {loading ? (
                     <tr>
-                      <td colSpan="8" className="px-6 py-16 text-center">
+                      <td colSpan="7" className="px-6 py-16 text-center">
                         <Loader2 className="w-8 h-8 mx-auto text-indigo-400 animate-spin mb-3" />
                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading Records...</p>
                       </td>
                     </tr>
                   ) : filteredRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="px-6 py-16 text-center">
+                      <td colSpan="7" className="px-6 py-16 text-center">
                         <Activity className="w-10 h-10 mx-auto text-slate-200 mb-3" />
                         <p className="text-xs font-black uppercase tracking-widest text-slate-400">No records found for this date</p>
                       </td>
                     </tr>
                   ) : (
                     filteredRecords.map((rec) => {
-                      const badge = getNetworkBadge(rec);
                       return (
                         <tr key={rec._id} className="hover:bg-slate-50/80 transition-colors group">
                           <td className="px-6 py-4">
@@ -532,11 +500,7 @@ const Attendance = () => {
                           <td className="px-6 py-4 font-black text-slate-700">
                             {formatDuration(rec.totalWorkingMinutes)}
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1.5 rounded-xl border ${badge.cls}`}>
-                              {badge.icon} {badge.label}
-                            </span>
-                          </td>
+
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               {rec.selfieUrl && (
@@ -586,11 +550,7 @@ const Attendance = () => {
                   Showing {filteredRecords.length} of {records.length} records
                 </p>
                 <div className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
-                  <span className="flex items-center gap-1.5">🟢 Office: {stats.unauthorized >= 0 ? filteredRecords.filter(r => r.deviceInfo?.networkType === "Office").length : 0}</span>
-                  <span className="flex items-center gap-1.5">🔵 Remote: {filteredRecords.filter(r => !r.deviceInfo?.networkType || r.deviceInfo?.networkType === "Remote").length}</span>
-                  {stats.unauthorized > 0 && (
-                    <span className="flex items-center gap-1.5 text-rose-500">🔴 Unauthorized: {filteredRecords.filter(r => r.deviceInfo?.networkType === "Unauthorized").length}</span>
-                  )}
+                  <span className="flex items-center gap-1.5">Work Mode: Enforced by Policy</span>
                 </div>
               </div>
             )}
@@ -829,22 +789,11 @@ const Attendance = () => {
                 </div>
               )}
 
-              {/* Unauthorized Warning */}
-              {viewingProof.deviceInfo?.networkType === "Unauthorized" && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-black text-red-700">Unauthorized Network</p>
-                    <p className="text-xs text-red-600 font-medium mt-0.5">
-                      IP: <span className="font-mono font-bold">{viewingProof.deviceInfo?.ip}</span> mismatch detected.
-                    </p>
-                  </div>
-                </div>
-              )}
+
 
               <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-700 font-medium">
                 <MapPin className="w-4 h-4" />
-                <span>Loc: {viewingProof.location?.latitude?.toFixed(4)}, {viewingProof.location?.longitude?.toFixed(4)} ({viewingProof.workLocation || "Office"})</span>
+                <span>Loc: {viewingProof.location?.latitude?.toFixed(4)}, {viewingProof.location?.longitude?.toFixed(4)} ({viewingProof.workLocation || "Onsite"})</span>
               </div>
             </div>
           </div>

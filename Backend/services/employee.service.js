@@ -102,7 +102,7 @@ class EmployeeService {
             },
             status: "PENDING",
             isActive: false,
-            workLocation: "OFFICE",
+            workLocation: "Onsite",
             shift: "DAY"
         });
 

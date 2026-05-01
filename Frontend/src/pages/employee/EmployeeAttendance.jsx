@@ -39,7 +39,7 @@ const EmployeeAttendance = () => {
   const [status, setStatus] = useState("idle"); // idle | punching | success | error
   const [records, setRecords] = useState([]);
   const [message, setMessage] = useState("");
-  const [selectedWorkLocation, setSelectedWorkLocation] = useState("Office");
+  const [selectedWorkLocation, setSelectedWorkLocation] = useState("Onsite");
   const [initialLoading, setInitialLoading] = useState(true);
   const [shift, setShift] = useState(null);
   const [todayLeave, setTodayLeave] = useState(null);
@@ -69,11 +69,11 @@ const EmployeeAttendance = () => {
   const token = localStorage.getItem("token");
 
   // Determine Effective Mode based on LIVE profile data
-  const employeeWorkLocation = profile?.workLocation?.toUpperCase?.() || "OFFICE";
-  const isHybrid = employeeWorkLocation === "HYBRID";
-  const todayDayName = new Date().toLocaleString("en-US", { weekday: "long" }).toUpperCase();
-  const isTodayOfficeDay = (profile?.officeDays || []).some(d => d.toUpperCase() === todayDayName);
-  const effectiveMode = isHybrid ? (isTodayOfficeDay ? "OFFICE" : "REMOTE") : employeeWorkLocation;
+  const employeeWorkLocation = profile?.workLocation || "Onsite";
+  const isHybrid = employeeWorkLocation === "Hybrid";
+  const todayDayName = new Date().toLocaleString("en-US", { weekday: "long" });
+  const isTodayOfficeDay = (profile?.officeDays || []).some(d => d.toLowerCase() === todayDayName.toLowerCase());
+  const effectiveMode = isHybrid ? (isTodayOfficeDay ? "Onsite" : "Remote") : employeeWorkLocation;
 
   // Fetch Location on mount
   useEffect(() => {
@@ -197,7 +197,7 @@ const EmployeeAttendance = () => {
 
     for (const start of candidates) {
       const diff = currentTime - start;
-      console.log(`Client Check - Candidate: ${start.toLocaleString()} | Diff: ${Math.floor(diff/60000)} mins`);
+      console.log(`Client Check - Candidate: ${start.toLocaleString()} | Diff: ${Math.floor(diff / 60000)} mins`);
       if (diff >= -EARLY_WINDOW_MS && diff <= LATE_WINDOW_MS) {
         bestShiftStart = start;
         console.log(`Client Match: ${start.toLocaleString()}`);
@@ -221,7 +221,7 @@ const EmployeeAttendance = () => {
     if (todayLeave && todayLeave.type === "Half Day") {
       const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
       const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
-      
+
       if (todayLeave.half === "First Half" && currentTime < midTime) {
         return showWarning(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
@@ -240,7 +240,7 @@ const EmployeeAttendance = () => {
       const formData = new FormData();
       formData.append("selfie", file);
       formData.append("location", JSON.stringify(location));
-      formData.append("workLocation", effectiveMode === "OFFICE" ? "Office" : "Remote");
+      formData.append("workLocation", effectiveMode);
 
       // Pass shiftId for backend to correctly calculate timings
       if (shift && shift._id) {
@@ -257,9 +257,7 @@ const EmployeeAttendance = () => {
       console.error("Punch-In API Error:", err);
       setStatus("error");
       const errData = err.response?.data;
-      if (err.response?.status === 403 && errData?.code === "OFFICE_IP_REQUIRED") {
-        setMessage(errData.message);
-      } else if (errData?.message) {
+      if (errData?.message) {
         setMessage(errData.message);
       } else {
         setMessage("Punch In Failed. Please try again.");
@@ -355,12 +353,7 @@ const EmployeeAttendance = () => {
   const activeBreak = todayRecord?.breaks?.find(b => !b.endTime);
   const isOnBreak = !!activeBreak;
 
-  const getNetworkBadge = (rec) => {
-    const nt = rec?.deviceInfo?.networkType;
-    if (nt === "Office") return { icon: "🟢", label: "Office Network", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-    if (nt === "Unauthorized") return { icon: "🔴", label: "Unauthorized", cls: "bg-red-50 text-red-700 border-red-200" };
-    return { icon: "🔵", label: "Remote Network", cls: "bg-blue-50 text-blue-700 border-blue-200" };
-  };
+
 
   const formatDuration = (mins) => {
     if (!mins) return "—";
@@ -402,9 +395,9 @@ const EmployeeAttendance = () => {
           {/* Work Mode Badge */}
           <div className="flex flex-col items-end gap-1">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border 
-              ${effectiveMode === "OFFICE" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+              ${effectiveMode === "Onsite" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
                 "bg-blue-50 text-blue-700 border-blue-200"}`}>
-              {effectiveMode === "OFFICE" ? <Building2 className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+              {effectiveMode === "Onsite" ? <Building2 className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
               {effectiveMode} Mode
             </div>
             {isHybrid && (
@@ -451,7 +444,7 @@ const EmployeeAttendance = () => {
         {/* ─── GPS Error Banner ─── */}
         {locationError && (
           <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
-            <WifiOff className="w-5 h-5 shrink-0" />
+            <AlertCircle className="w-5 h-5 shrink-0" />
             {locationError}
           </div>
         )}
@@ -473,7 +466,7 @@ const EmployeeAttendance = () => {
                     <h2 className="font-black text-slate-900 text-sm uppercase tracking-wide">
                       Secure Punch Terminal
                     </h2>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">Selfie + GPS + IP Verified</p>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">Selfie + GPS + Work Mode Logging</p>
                   </div>
                 </div>
 
@@ -571,7 +564,7 @@ const EmployeeAttendance = () => {
                           {[
                             { label: "GPS Signal", ok: !!location, note: location ? `${location.latitude?.toFixed(3)}, ${location.longitude?.toFixed(3)}` : "Waiting..." },
                             { label: "Camera Selfie", ok: !!capturedImage || alreadyPunchedIn, note: capturedImage || alreadyPunchedIn ? "Verified" : "Not captured" },
-                            { label: "Network", ok: true, note: "Connected" },
+
                           ].map((check, i) => (
                             <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                               <div className="flex items-center gap-2.5">
@@ -585,20 +578,20 @@ const EmployeeAttendance = () => {
                       </div>
 
                       {/* Automatic Work Mode Status */}
-                      <div className={`p-4 rounded-xl border-2 transition-all ${effectiveMode === "OFFICE" ? "bg-indigo-50 border-indigo-100" : "bg-blue-50 border-blue-100"}`}>
+                      <div className={`p-4 rounded-xl border-2 transition-all ${effectiveMode === "Onsite" ? "bg-indigo-50 border-indigo-100" : "bg-blue-50 border-blue-100"}`}>
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current Work Mode</h3>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${effectiveMode === "OFFICE" ? "bg-indigo-600 text-white" : "bg-blue-600 text-white"}`}>
-                            {effectiveMode === "OFFICE" ? "ONSITE" : "REMOTE"}
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${effectiveMode === "Onsite" ? "bg-indigo-600 text-white" : "bg-blue-600 text-white"}`}>
+                            {effectiveMode === "Onsite" ? "ONSITE" : "REMOTE"}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${effectiveMode === "OFFICE" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-blue-600 shadow-sm"}`}>
-                            {effectiveMode === "OFFICE" ? <Building2 className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
+                          <div className={`p-2 rounded-lg ${effectiveMode === "Onsite" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-blue-600 shadow-sm"}`}>
+                            {effectiveMode === "Onsite" ? <Building2 className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
                           </div>
                           <div>
                             <p className="text-sm font-black text-slate-800">
-                              {effectiveMode === "OFFICE" ? "Office Network Required" : "Working from Anywhere"}
+                              {effectiveMode === "Onsite" ? "Onsite Attendance" : "Remote Attendance"}
                             </p>
                             <p className="text-[10px] font-medium text-slate-500">
                               {isHybrid ? `Based on your Hybrid schedule for ${todayDayName}` : `Standard ${employeeWorkLocation} policy enforced`}
@@ -712,19 +705,7 @@ const EmployeeAttendance = () => {
                       </div>
                       <span className="font-black text-slate-900">{todayRecord.totalBreakMinutes || 0} min</span>
                     </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
-                        <Wifi className="w-4 h-4 text-purple-500" /> Network
-                      </div>
-                      {(() => {
-                        const badge = getNetworkBadge(todayRecord);
-                        return (
-                          <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${badge.cls}`}>
-                            {badge.icon} {badge.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
+
                   </>
                 ) : (
                   <div className="text-center py-8">
@@ -773,7 +754,7 @@ const EmployeeAttendance = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  {["Date", "In Time", "Out Time", "Duration", "Work Location", "Network", "Status", "Actions"].map((h) => (
+                  {["Date", "In Time", "Out Time", "Duration", "Work Location", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       {h}
                     </th>
@@ -783,14 +764,13 @@ const EmployeeAttendance = () => {
               <tbody className="divide-y divide-slate-50">
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-16 text-center">
+                    <td colSpan="7" className="px-6 py-16 text-center">
                       <Activity className="w-10 h-10 mx-auto text-slate-200 mb-3" />
                       <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No attendance records found</p>
                     </td>
                   </tr>
                 ) : (
                   records.map((rec) => {
-                    const badge = getNetworkBadge(rec);
                     return (
                       <tr key={rec._id} className="hover:bg-slate-50/80 transition-colors group">
                         <td className="px-6 py-4 font-bold text-slate-900">
@@ -813,13 +793,9 @@ const EmployeeAttendance = () => {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-slate-600">{rec.workLocation || "Office"}</span>
+                          <span className="text-xs font-bold text-slate-600">{rec.workLocation || "Onsite"}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${badge.cls}`}>
-                            {badge.icon} {badge.label}
-                          </span>
-                        </td>
+
                         <td className="px-6 py-4">
                           <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border-2
                             ${rec.status === "Present"
@@ -875,7 +851,7 @@ const EmployeeAttendance = () => {
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                 Updating Record: <span className="text-indigo-600">{new Date(selectedRecordForRegularize.date).toLocaleDateString()}</span>
               </p>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1.5">New In Time</label>

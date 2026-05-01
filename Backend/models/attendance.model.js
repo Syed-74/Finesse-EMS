@@ -79,8 +79,8 @@ const attendanceSchema = new mongoose.Schema(
 
     workLocation: {
       type: String,
-      enum: ["Office", "Remote", "Hybrid"],
-      default: "Office"
+      enum: ["Onsite", "Remote", "Hybrid"],
+      default: "Onsite"
     },
 
     // 📸 Proof of Attendance
@@ -93,17 +93,6 @@ const attendanceSchema = new mongoose.Schema(
       longitude: Number,
       address: String,
       isInsideOffice: Boolean // Geo-fencing result
-    },
-
-    deviceInfo: {
-      userAgent: String,
-      ip: String,
-      // 🌐 IP Validation Result: 'Office' | 'Remote' | 'Unauthorized'
-      networkType: {
-        type: String,
-        enum: ["Office", "Remote", "Unauthorized"],
-        default: "Remote"
-      }
     },
 
     remarks: {

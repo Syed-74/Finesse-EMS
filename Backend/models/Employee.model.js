@@ -133,8 +133,8 @@ const employeeSchema = new mongoose.Schema(
 
     workLocation: {
       type: String,
-      enum: ["OFFICE", "REMOTE", "HYBRID"],
-      default: "OFFICE",
+      enum: ["Onsite", "Remote", "Hybrid"],
+      default: "Onsite",
     },
 
     officeDays: {
