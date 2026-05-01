@@ -20,6 +20,7 @@ import reportRoutes from "./routes/report.routes.js";
 import shiftRoutes from "./routes/shift.routes.js";
 import markAbsentCron from "./services/attendanceCron.js";
 import taskRoutes from "./routes/task.routes.js";
+import officeConfigRoutes from "./routes/officeConfig.routes.js";
 
 dotenv.config();
 connectDB();
@@ -66,6 +67,7 @@ app.use("/api/payroll", payrollRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/admin/office-config", officeConfigRoutes);
 
 // Static uploads
 app.use("/uploads", express.static("uploads"));
