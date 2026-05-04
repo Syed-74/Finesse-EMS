@@ -33,7 +33,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
 
 const Attendance = () => {
   const [records, setRecords] = useState([]);

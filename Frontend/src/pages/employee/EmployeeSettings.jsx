@@ -79,6 +79,8 @@ const EmployeeSettings = () => {
     setUploading(true);
     const formData = new FormData();
     formData.append("profileImage", selectedImage);
+    console.log(formData);
+
 
     try {
       const token = localStorage.getItem("token");
@@ -176,10 +178,19 @@ const EmployeeSettings = () => {
               <div className="relative mb-8">
                 <div className="w-36 h-36 md:w-40 md:h-40 rounded-[2.5rem] border-[6px] border-white shadow-2xl overflow-hidden bg-white ring-1 ring-slate-100">
                   <img
-                    src={previewImage || (profileData.profileImage ? `${API_BASE_URL}/${profileData.profileImage}` : "https://ui-avatars.com/api/?name=" + profileData.firstName + "+" + profileData.lastName + "&background=6366f1&color=fff&size=200")}
+                    src={
+                      previewImage ||
+                      (profileData.profileImage
+                        ? `https://finesse-ems.onrender.com${profileData.profileImage}`
+                        : `https://ui-avatars.com/api/?name=${profileData.firstName}+${profileData.lastName}&background=6366f1&color=fff&size=200`)
+                    }
                     alt="Profile"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${profileData.firstName}+${profileData.lastName}&background=6366f1&color=fff&size=200`;
+                    }}
                   />
+                  {console.log("profileImage", profileData.profileImage)}
                 </div>
                 <label className="absolute -bottom-2 -right-2 p-3 bg-indigo-600 text-white rounded-2xl cursor-pointer hover:bg-slate-900 transition-all shadow-xl hover:scale-110 active:scale-95 border-2 border-white">
                   <Camera className="w-5 h-5" />
@@ -191,7 +202,6 @@ const EmployeeSettings = () => {
                   />
                 </label>
               </div>
-
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">{profileData.firstName} {profileData.lastName}</h2>
               <div className="inline-flex items-center gap-2 mt-2 px-4 py-1.5 bg-slate-900 text-white rounded-full">
                 <Briefcase className="w-3.5 h-3.5 text-indigo-400" />

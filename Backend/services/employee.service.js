@@ -124,38 +124,66 @@ class EmployeeService {
     
     * Save Profile Photo to Local Storage
       */
+    // saveProfilePhoto(photoBuffer, identifier) {
+
+
+    //     if (!photoBuffer) return null;
+
+
+
+    //     try {
+
+    //         const fileName = `${identifier.replace(/[@.]/g, "_")}.jpg`;
+
+    //         const uploadDir = path.join(process.cwd(), "uploads", "profile-photos");
+
+    //         if (!fs.existsSync(uploadDir)) {
+    //             fs.mkdirSync(uploadDir, { recursive: true });
+    //         }
+
+    //         const filePath = path.join(uploadDir, fileName);
+
+    //         fs.writeFileSync(filePath, Buffer.from(photoBuffer));
+
+    //         return `/uploads/profile-photos/${fileName}`;
+
+    //     } catch (error) {
+
+    //         console.error("Error saving profile photo:", error.message);
+
+    //         return null;
+    //     }
+
+
+    // }
     saveProfilePhoto(photoBuffer, identifier) {
 
+    if (!photoBuffer) {
+        console.log("⚠️ No profile photo received from Microsoft Graph");
+        return null;
+    }
 
-        if (!photoBuffer) return null;
+    try {
+        const fileName = `${identifier.replace(/[@.]/g, "_")}.jpg`;
 
+        const uploadDir = path.join(process.cwd(), "uploads", "profile-photos");
 
-
-        try {
-
-            const fileName = `${identifier.replace(/[@.]/g, "_")}.jpg`;
-
-            const uploadDir = path.join(process.cwd(), "uploads", "profile-photos");
-
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-
-            const filePath = path.join(uploadDir, fileName);
-
-            fs.writeFileSync(filePath, Buffer.from(photoBuffer));
-
-            return `/uploads/profile-photos/${fileName}`;
-
-        } catch (error) {
-
-            console.error("Error saving profile photo:", error.message);
-
-            return null;
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
         }
 
+        const filePath = path.join(uploadDir, fileName);
 
+        fs.writeFileSync(filePath, Buffer.from(photoBuffer));
+
+
+        return `/uploads/profile-photos/${fileName}`;
+
+    } catch (error) {
+        console.error("Error saving profile photo:", error.message);
+        return null;
     }
+}
 
 }
 

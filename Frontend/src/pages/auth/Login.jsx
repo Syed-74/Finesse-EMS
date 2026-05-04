@@ -35,7 +35,7 @@ const Login = () => {
   const [ssoLoading, setSsoLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://finesse-ems.onrender.com/api";
 
   // --- 1. AUTO REDIRECT (If already logged in) ---
   useEffect(() => {

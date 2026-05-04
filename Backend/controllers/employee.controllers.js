@@ -188,7 +188,7 @@ export const getEmployeeProfile = async (req, res) => {
 ========================= */
 export const updateEmployeeProfileImage = async (req, res) => {
     try {
-        const email = req.admin.email;
+        const email = req.user.email;
 
         if (!req.file) {
             return res.status(400).json({ message: "No image file provided" });

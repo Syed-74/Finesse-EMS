@@ -2,6 +2,7 @@
 import express from "express";
 import dns from "dns";
 import dotenv from "dotenv";
+import path from "path";
 
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
@@ -34,7 +35,8 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "http://localhost:5173 ", "https://finesse-ems-git-main-syed-nusraths-projects.vercel.app/", // Common Vite port
+  "http://localhost:3000",
+  "http://localhost:5173",
 ];
 
 app.use(
@@ -70,7 +72,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/admin/office-config", officeConfigRoutes);
 
 // Static uploads
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 
 // Error Handling Middleware

@@ -1,6 +1,7 @@
 import React from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
+const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
 /**
  * ProfileAvatar Component
  * Reusable component to render employee/admin profile images with consistent styling and fallback logic.
@@ -11,7 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.o
  * @param {string} uploadPath - Base URL for uploads. Defaults to http://localhost:5000.
 
  */
-const ProfileAvatar = ({ user, className = "", showStatus = false, uploadPath = API_BASE_URL }) => {
+const ProfileAvatar = ({ user, className = "", showStatus = false, uploadPath = IMAGE_BASE_URL }) => {
     // Construct image URL safely
     const getImageUrl = (path) => {
         if (!path) return null;

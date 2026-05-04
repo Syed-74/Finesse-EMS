@@ -188,7 +188,9 @@ export const loginAdmin = async (req, res) => {
 ========================= */
 export const getAdminProfile = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.admin.id).select("-password");
+    const admin = await Admin.findById(req.admin.id)
+      .select("-password")
+      .populate("employeeId", "designation department employeeCode dateOfJoining workLocation");
     res.json(admin);
   } catch (error) {
     res.status(500).json({ message: error.message });

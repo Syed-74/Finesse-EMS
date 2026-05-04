@@ -3,27 +3,30 @@ import { useAuth } from "../AuthContext/AuthContext";
 import ProfileAvatar from "./ProfileAvatar";
 import {
   Menu,
-  LogOut,
   User,
   Briefcase,
   Mail,
   MapPin,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Shield,
+  Activity,
+  CreditCard,
+  Calendar,
+  Clock,
+  ExternalLink
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 /**
  * Topbar Component
  * 
- * Clean, minimal top navigation bar.
- * Enhanced with a responsive, animated profile dropdown.
+ * Clean, modern top navigation bar with glassmorphism and enhanced profile insights.
+ * Features populated data mapping and premium visual interactions.
  */
 const Topbar = ({ toggleSidebar }) => {
-  const { admin, signOut } = useAuth();
+  const { admin } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const navigate = useNavigate();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,128 +39,195 @@ const Topbar = ({ toggleSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    signOut();
+  // Format Date for Display
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not Specified";
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200">
-      <div className="flex items-center justify-between px-4 py-3 md:px-8 max-w-[1920px] mx-auto">
+  // Get Employee Data safely from populated field or admin object
+  const empData = admin?.employeeId || {};
+  const designation = empData.designation || admin?.designation || "Enterprise User";
+  const department = empData.department || admin?.department || "Operations";
+  const employeeCode = empData.employeeCode || "N/A";
+  const joiningDate = empData.dateOfJoining ? formatDate(empData.dateOfJoining) : "N/A";
+  const lastLoginTime = admin?.security?.lastLoginTime ? formatDate(admin.security.lastLoginTime) : "Today";
 
-        {/* Left: Mobile Toggle & Brand/Breadcrumb */}
+  return (
+    <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-xl border-b border-slate-200/50">
+      <div className="flex items-center justify-between px-4 py-2.5 md:px-8 max-w-[1920px] mx-auto">
+
+        {/* Left: Mobile Toggle & Page Context */}
         <div className="flex items-center gap-4">
           <button
             onClick={toggleSidebar}
-            className="md:hidden p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all active:scale-95"
+            className="md:hidden p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-2xl transition-all active:scale-90"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5" />
           </button>
 
-          <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tight hidden xs:block">
-            Dashboard
-          </h3>
+          <div className="flex flex-col">
+            <h3 className="text-sm md:text-base font-black text-slate-900 tracking-tight leading-none">
+              EMS Dashboard
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block mt-1">
+              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+            </p>
+          </div>
         </div>
 
-        {/* Right: User Profile Section */}
-        <div className="flex items-center gap-4">
+        {/* Right: User Identity Section */}
+        <div className="flex items-center gap-2">
 
-          {/* User Info & Avatar with Dropdown */}
+          {/* Notifications & Search (Placeholders for UI completeness) */}
+          <div className="hidden lg:flex items-center gap-1 mr-4 pr-4 border-r border-slate-200/50">
+            <div className="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 cursor-pointer transition-colors">
+              <Activity size={18} />
+            </div>
+          </div>
+
+          {/* Profile Trigger */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-3 pl-4 border-l border-slate-200 group outline-none"
+              className="flex items-center gap-3 p-1.5 pr-3 rounded-2xl border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all group outline-none"
             >
-              <div className="hidden sm:flex flex-col text-right">
-                <span className="text-sm font-bold text-slate-700 leading-tight group-hover:text-indigo-600 transition-colors">
-                  {admin?.firstName} {admin?.lastName}
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {admin?.role}
-                </span>
-              </div>
-
-              {/* Reusable Profile Avatar Component */}
               <div className="relative">
-                <div className={`absolute -inset-1 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full opacity-0 ${isDropdownOpen ? 'opacity-100 blur-sm' : 'group-hover:opacity-100 group-hover:blur-sm'} transition-all duration-300`}></div>
+                <div className={`absolute -inset-1 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full opacity-0 ${isDropdownOpen ? 'opacity-100 blur-sm' : 'group-hover:opacity-60 group-hover:blur-sm'} transition-all duration-500`}></div>
                 <ProfileAvatar
                   user={admin}
-                  className="w-10 h-10 ring-2 ring-white relative z-10"
+                  className="w-9 h-9 ring-2 ring-white relative z-10"
                   showStatus={true}
                 />
               </div>
 
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-xs font-black text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">
+                  {admin?.firstName} {admin?.lastName}
+                </span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">
+                  {admin?.role === 'admin' ? 'Administrator' : 'Employee'}
+                </span>
+              </div>
+
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-500 ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Profile Dropdown Card */}
+            {/* Premium Profile Dropdown */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200 z-50">
-                {/* Header Profile Section */}
-                <div className="p-6 bg-slate-50 border-b border-slate-100">
-                  <div className="flex items-center gap-4 mb-4">
-                    <ProfileAvatar
-                      user={admin}
-                      className="w-16 h-16 ring-4 ring-white shadow-md shadow-slate-200"
-                    />
-                    <div>
-                      <h4 className="font-black text-slate-800 leading-tight">{admin?.firstName} {admin?.lastName}</h4>
-                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">{admin?.role}</p>
+              <div className="absolute right-0 mt-4 w-[340px] md:w-[380px] bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-6 duration-300 z-50">
+                
+                {/* Visual Header */}
+                <div className="relative p-6 pb-4 overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <Shield size={120} />
+                  </div>
+                  
+                  <div className="flex items-start justify-between relative z-10">
+                    <div className="flex items-center gap-4">
+                      <ProfileAvatar
+                        user={admin}
+                        className="w-14 h-14 ring-4 ring-white shadow-2xl shadow-slate-200"
+                      />
+                      <div className="flex flex-col">
+                        <h4 className="font-black text-slate-900 text-lg leading-tight">
+                          {admin?.firstName} {admin?.lastName}
+                        </h4>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-200">
+                            {admin?.role}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                            admin?.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                          }`}>
+                            {admin?.status || 'PENDING'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Info List */}
-                <div className="p-4 space-y-1">
-                  <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                      <Mail size={16} />
+                {/* Professional Insights Grid */}
+                <div className="px-6 py-4 grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
+                    <div className="flex items-center gap-2 mb-2 text-indigo-600">
+                      <CreditCard size={14} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Employee ID</span>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Email</span>
-                      <span className="text-sm text-slate-700 font-medium truncate max-w-[180px]">{admin?.email}</span>
-                    </div>
+                    <p className="text-xs font-black text-slate-800">{employeeCode}</p>
                   </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
+                    <div className="flex items-center gap-2 mb-2 text-purple-600">
+                      <Building2 size={14} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Department</span>
+                    </div>
+                    <p className="text-xs font-black text-slate-800 truncate">{department}</p>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                {/* Information List */}
+                <div className="px-6 space-y-1">
+                  <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <Briefcase size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Designation</span>
-                      <span className="text-sm text-slate-700 font-medium">{admin?.designation || "Not Specified"}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Current Role</span>
+                      <span className="text-xs font-bold text-slate-700">{designation}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                      <Building2 size={16} />
+                  <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
+                    <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Calendar size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Department</span>
-                      <span className="text-sm text-slate-700 font-medium">{admin?.department || "General"}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Joined Date</span>
+                      <span className="text-xs font-bold text-slate-700">{joiningDate}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-                      <MapPin size={16} />
+                  <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Mail size={16} />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Last Login Location</span>
-                      <span className="text-sm text-slate-700 font-medium">{admin?.officeLocation || "Default"}</span>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Work Email</span>
+                      <span className="text-xs font-bold text-slate-700 truncate w-full">{admin?.email}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Action Footer */}
-                <div className="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-1 gap-2">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
-                  >
-                    <LogOut size={16} />
-                    Logout Account
-                  </button>
+                {/* Footer Meta Section */}
+                <div className="m-4 mt-6 p-4 rounded-[1.5rem] bg-slate-950 text-white relative overflow-hidden group">
+                  <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                  
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Security Level: Secured</span>
+                    </div>
+                    <Shield size={12} className="text-slate-600" />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1">Last System Sync</span>
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={12} className="text-indigo-400" />
+                        <span className="text-xs font-black">{lastLoginTime}</span>
+                      </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/5 cursor-pointer hover:bg-white/20 transition-all">
+                      <ExternalLink size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pb-4 text-center">
+                   <p className="text-[8px] text-slate-300 font-black uppercase tracking-[0.4em]">Finesse EMS Identity Engine</p>
                 </div>
               </div>
             )}
