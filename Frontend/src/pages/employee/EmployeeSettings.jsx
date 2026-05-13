@@ -21,8 +21,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
 
-
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
 
 const EmployeeSettings = () => {

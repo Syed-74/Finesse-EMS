@@ -3,7 +3,6 @@ import Employee from "../models/Employee.model.js";
 import Attendance from "../models/attendance.model.js";
 import Shift from "../models/shift.model.js";
 import LeaveApplication from "../models/LeaveApplication.model.js";
-import moment from "moment";
 
 const markAbsentCron = () => {
   // Run every hour
@@ -11,10 +10,11 @@ const markAbsentCron = () => {
     console.log("Running Attendance Cron Job: Checking for Absentees...");
 
     try {
-      const now = moment().utcOffset("+05:30");
-      const today = now.clone().startOf("day").toDate();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      const yesterday = now.clone().subtract(1, "day").startOf("day").toDate();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
 
       // Check both yesterday and today to capture night shifts that started on the previous day
       const datesToCheck = [yesterday, today];
@@ -55,12 +55,14 @@ const markAbsentCron = () => {
 
           // 4. Check Shift Start Time for this target date
           const [startH, startM] = employee.shiftId.startTime.split(":").map(Number);
-          const shiftStartOnTargetDate = moment(targetDate).set({ hour: startH, minute: startM, second: 0, millisecond: 0 });
+          const shiftStartOnTargetDate = new Date(targetDate);
+          shiftStartOnTargetDate.setHours(startH, startM, 0, 0);
 
-          const absentThreshold = shiftStartOnTargetDate.clone().add(4, "hours");
+          const absentThreshold = new Date(shiftStartOnTargetDate);
+          absentThreshold.setHours(absentThreshold.getHours() + 4);
 
           // If current time is past the 4-hour grace period for this shift
-          if (now.isAfter(absentThreshold)) {
+          if (new Date() > absentThreshold) {
             await Attendance.create({
               employee: employee._id,
               date: targetDate,

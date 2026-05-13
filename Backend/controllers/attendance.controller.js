@@ -5,7 +5,6 @@ import Employee from "../models/Employee.model.js";
 import Regularization from "../models/regularization.model.js";
 import AuditLog from "../models/auditLog.model.js";
 import { validateAttendanceLocation } from "../services/attendanceValidation.service.js";
-import moment from "moment";
 
 /* =========================
    PUNCH IN
@@ -14,10 +13,8 @@ export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
     console.log(`🚀 Punch-in Attempt: ${req.employee.email}`);
-    
-    // Use IST (UTC+5:30) for consistent timing regardless of server deployment
-    const now = moment().utcOffset("+05:30");
-    const today = now.clone().startOf("day").toDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // 0. Fetch Employee with Shift
     let employeeProfile = await Employee.findById(employeeId).populate("shiftId");
@@ -25,8 +22,9 @@ export const punchIn = async (req, res) => {
     if (!employeeProfile) {
       return res.status(404).json({ message: "Employee profile not found" });
     }
-    
-    const currentTimeStr = now.format("HH:mm");
+
+    const now = new Date();
+    const currentTimeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     // 1. Check existing punch (today's record or any currently open session)
     let existing = await Attendance.findOne({
       employee: employeeId,
@@ -136,11 +134,11 @@ export const punchIn = async (req, res) => {
       // If no candidate fits, it means they are either way too early for today's shift 
       // or way too late for yesterday's/today's.
       const todayShift = getShiftInstance(today, shift.startTime);
-      const allowedFrom = moment(todayShift).subtract(30, "minutes");
+      const allowedFrom = new Date(todayShift.getTime() - EARLY_WINDOW_MS);
 
-      if (now.isBefore(allowedFrom)) {
+      if (now < allowedFrom) {
         return res.status(400).json({
-          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.format("HH:mm")}`
+          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
         });
       }
 
@@ -261,8 +259,8 @@ export const punchOut = async (req, res) => {
 
 
     const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
-    const now = moment().utcOffset("+05:30");
-    const today = now.clone().startOf("day").toDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // FIX: Look for the most recent record where outTime is missing but inTime exists.
     // This ensures we are punching out of a real session and not an auto-marked 'Absent' record.
@@ -280,15 +278,21 @@ export const punchOut = async (req, res) => {
       return res.status(400).json({ message: "Already punched out today" });
     }
 
+    const outTime = new Date();
+
     const [inH, inM] = attendance.inTime.split(":").map(Number);
 
-    // Support Overnight Shifts (using moment for timezone consistency)
-    const punchInDateTime = moment(attendance.date).set({ hour: inH, minute: inM, second: 0, millisecond: 0 });
+    // Support Overnight Shifts
+    const punchInDateTime = new Date(attendance.date);
+    punchInDateTime.setHours(inH, inM, 0, 0);
 
-    let totalMinutes = now.diff(punchInDateTime, "minutes");
+    let totalMinutes = Math.floor((outTime - punchInDateTime) / (1000 * 60));
     if (totalMinutes < 0) totalMinutes = 0; // Guard
 
-    attendance.outTime = now.format("HH:mm");
+    attendance.outTime = outTime.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
 
     attendance.totalWorkingMinutes = totalMinutes;
     attendance.overtimeMinutes = Math.max(0, totalMinutes - shiftDurationMinutes);
