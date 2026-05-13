@@ -23,6 +23,7 @@ import markAbsentCron from "./services/attendanceCron.js";
 import taskRoutes from "./routes/task.routes.js";
 import officeConfigRoutes from "./routes/officeConfig.routes.js";
 
+process.env.TZ = "Asia/Kolkata";
 dotenv.config();
 connectDB();
 markAbsentCron();

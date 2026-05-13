@@ -5,6 +5,7 @@ import Employee from "../models/Employee.model.js";
 import Regularization from "../models/regularization.model.js";
 import AuditLog from "../models/auditLog.model.js";
 import { validateAttendanceLocation } from "../services/attendanceValidation.service.js";
+import { getISTTime } from "../utils/timezone.js";
 
 /* =========================
    PUNCH IN
@@ -13,7 +14,7 @@ export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
     console.log(`🚀 Punch-in Attempt: ${req.employee.email}`);
-    const today = new Date();
+    const today = getISTTime();
     today.setHours(0, 0, 0, 0);
 
     // 0. Fetch Employee with Shift
@@ -23,7 +24,7 @@ export const punchIn = async (req, res) => {
       return res.status(404).json({ message: "Employee profile not found" });
     }
 
-    const now = new Date();
+    const now = getISTTime();
     const currentTimeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     // 1. Check existing punch (today's record or any currently open session)
     let existing = await Attendance.findOne({
@@ -259,7 +260,7 @@ export const punchOut = async (req, res) => {
 
 
     const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
-    const today = new Date();
+    const today = getISTTime();
     today.setHours(0, 0, 0, 0);
 
     // FIX: Look for the most recent record where outTime is missing but inTime exists.
@@ -278,7 +279,7 @@ export const punchOut = async (req, res) => {
       return res.status(400).json({ message: "Already punched out today" });
     }
 
-    const outTime = new Date();
+    const outTime = getISTTime();
 
     const [inH, inM] = attendance.inTime.split(":").map(Number);
 
@@ -479,7 +480,7 @@ export const updateAttendance = async (req, res) => {
 export const startBreak = async (req, res) => {
   try {
     const employeeId = req.employee._id;
-    const today = new Date();
+    const today = getISTTime();
     today.setHours(0, 0, 0, 0);
 
     const attendance = await Attendance.findOne({ employee: employeeId, date: today });
@@ -495,7 +496,7 @@ export const startBreak = async (req, res) => {
     }
 
     const { type, reason } = req.body;
-    const now = new Date();
+    const now = getISTTime();
     const startTime = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
     attendance.breaks.push({ startTime, type: type || "Lunch", reason });
@@ -510,7 +511,7 @@ export const startBreak = async (req, res) => {
 export const endBreak = async (req, res) => {
   try {
     const employeeId = req.employee._id;
-    const today = new Date();
+    const today = getISTTime();
     today.setHours(0, 0, 0, 0);
 
     const attendance = await Attendance.findOne({ employee: employeeId, date: today });
@@ -522,7 +523,7 @@ export const endBreak = async (req, res) => {
     const activeBreak = attendance.breaks.find(b => !b.endTime);
     if (!activeBreak) return res.status(400).json({ message: "No active break found." });
 
-    const now = new Date();
+    const now = getISTTime();
     const endTime = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
     // Calculate duration
