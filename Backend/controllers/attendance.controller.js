@@ -5,6 +5,7 @@ import Employee from "../models/Employee.model.js";
 import Regularization from "../models/regularization.model.js";
 import AuditLog from "../models/auditLog.model.js";
 import { validateAttendanceLocation } from "../services/attendanceValidation.service.js";
+import moment from "moment";
 
 /* =========================
    PUNCH IN
@@ -13,8 +14,10 @@ export const punchIn = async (req, res) => {
   try {
     const employeeId = req.employee._id;
     console.log(`🚀 Punch-in Attempt: ${req.employee.email}`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Use IST (UTC+5:30) for consistent timing regardless of server deployment
+    const now = moment().utcOffset("+05:30");
+    const today = now.clone().startOf("day").toDate();
 
     // 0. Fetch Employee with Shift
     let employeeProfile = await Employee.findById(employeeId).populate("shiftId");
@@ -22,22 +25,28 @@ export const punchIn = async (req, res) => {
     if (!employeeProfile) {
       return res.status(404).json({ message: "Employee profile not found" });
     }
-
-    const now = new Date();
-    const currentTimeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    // 1. Check existing punch
+    
+    const currentTimeStr = now.format("HH:mm");
+    // 1. Check existing punch (today's record or any currently open session)
     let existing = await Attendance.findOne({
       employee: employeeId,
-      date: today
-    });
+      $or: [
+        { date: today },
+        { outTime: { $exists: false } }
+      ]
+    }).sort({ date: -1 });
 
     if (existing) {
-      // If it's an auto-marked "Absent" or "Leave" record, we allow "overwriting" it with a real punch-in
-      if (existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
+      // If it's an open session (missing outTime), we don't allow a new punch-in
+      if (!existing.outTime && !existing.autoMarked) {
+        return res.status(400).json({ message: "You already have an active punch-in session. Please punch out first." });
+      }
+
+      // If it's an auto-marked "Absent" or "Leave" record for today, we allow "overwriting" it
+      if (existing.date.getTime() === today.getTime() && existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
         console.log(`Overwriting auto-marked ${existing.status} record for ${employeeProfile.email}`);
-        // We will update this record later instead of creating a new one
-      } else {
-        return res.status(400).json({ message: "Already punched in today" });
+      } else if (existing.date.getTime() === today.getTime()) {
+        return res.status(400).json({ message: "Already punched in for today" });
       }
     }
 
@@ -127,11 +136,11 @@ export const punchIn = async (req, res) => {
       // If no candidate fits, it means they are either way too early for today's shift 
       // or way too late for yesterday's/today's.
       const todayShift = getShiftInstance(today, shift.startTime);
-      const allowedFrom = new Date(todayShift.getTime() - EARLY_WINDOW_MS);
+      const allowedFrom = moment(todayShift).subtract(30, "minutes");
 
-      if (now < allowedFrom) {
+      if (now.isBefore(allowedFrom)) {
         return res.status(400).json({
-          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
+          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.format("HH:mm")}`
         });
       }
 
@@ -252,37 +261,34 @@ export const punchOut = async (req, res) => {
 
 
     const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = moment().utcOffset("+05:30");
+    const today = now.clone().startOf("day").toDate();
 
+    // FIX: Look for the most recent record where outTime is missing but inTime exists.
+    // This ensures we are punching out of a real session and not an auto-marked 'Absent' record.
     const attendance = await Attendance.findOne({
       employee: employeeId,
-      date: today
-    });
+      outTime: { $exists: false },
+      inTime: { $exists: true } 
+    }).sort({ date: -1, createdAt: -1 });
 
     if (!attendance) {
-      return res.status(404).json({ message: "No punch in found for today" });
+      return res.status(404).json({ message: "No active punch-in found. Please punch in first." });
     }
 
     if (attendance.outTime) {
       return res.status(400).json({ message: "Already punched out today" });
     }
 
-    const outTime = new Date();
-
     const [inH, inM] = attendance.inTime.split(":").map(Number);
 
-    // Support Overnight Shifts
-    const punchInDateTime = new Date(attendance.date);
-    punchInDateTime.setHours(inH, inM, 0, 0);
+    // Support Overnight Shifts (using moment for timezone consistency)
+    const punchInDateTime = moment(attendance.date).set({ hour: inH, minute: inM, second: 0, millisecond: 0 });
 
-    let totalMinutes = Math.floor((outTime - punchInDateTime) / (1000 * 60));
+    let totalMinutes = now.diff(punchInDateTime, "minutes");
     if (totalMinutes < 0) totalMinutes = 0; // Guard
 
-    attendance.outTime = outTime.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+    attendance.outTime = now.format("HH:mm");
 
     attendance.totalWorkingMinutes = totalMinutes;
     attendance.overtimeMinutes = Math.max(0, totalMinutes - shiftDurationMinutes);
@@ -417,7 +423,7 @@ export const updateAttendance = async (req, res) => {
       const [inH, inM] = attendance.inTime.split(":").map(Number);
       const [outH, outM] = attendance.outTime.split(":").map(Number);
 
-      // Handle overnight calculation for manual edits
+      // Recalculate Logic if Times are changed
       let totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
       if (totalMinutes < 0) totalMinutes += 1440; // Add 24 hours if outTime < inTime
 
@@ -425,12 +431,18 @@ export const updateAttendance = async (req, res) => {
 
       // Fetch shift with robust fallback
       let emp = await Employee.findById(attendance.employee).populate("shiftId");
+      const shift = emp?.shiftId;
+      const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
 
-      if (!emp?.shiftId) {
-        return res.status(400).json({ message: "No shift assigned to employee." });
+      // Recalculate Late Minutes
+      if (shift && shift.startTime) {
+        const [shiftH, shiftM] = shift.startTime.split(":").map(Number);
+        const lateMinutes = (inH * 60 + inM) - (shiftH * 60 + shiftM);
+        attendance.lateByMinutes = Math.max(0, lateMinutes);
       }
-      const dur = emp?.shiftId?.duration ? (emp.shiftId.duration * 60) : 540;
-      attendance.overtimeMinutes = Math.max(0, totalMinutes - dur);
+
+      // Recalculate Overtime
+      attendance.overtimeMinutes = Math.max(0, totalMinutes - shiftDurationMinutes);
     }
 
     await attendance.save();
@@ -582,17 +594,48 @@ export const approveRegularization = async (req, res) => {
     if (!attendance) return res.status(404).json({ message: "Attendance record not found" });
 
     // Store old data for audit
-    const oldData = { inTime: attendance.inTime, outTime: attendance.outTime, status: attendance.status };
+    const oldData = { 
+      inTime: attendance.inTime, 
+      outTime: attendance.outTime, 
+      status: attendance.status,
+      lateByMinutes: attendance.lateByMinutes,
+      overtimeMinutes: attendance.overtimeMinutes,
+      totalWorkingMinutes: attendance.totalWorkingMinutes
+    };
 
     // Update Attendance
     attendance.inTime = request.requestedInTime;
     attendance.outTime = request.requestedOutTime;
-    attendance.status = "Present"; // Corrected to Title Case for consistency
+    attendance.status = "Present"; 
 
-    // Recalculate duration
+    // Fetch Employee and Shift for accurate recalculations
+    const employee = await Employee.findById(attendance.employee).populate("shiftId");
+    const shift = employee?.shiftId;
+    const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
+
+    // Recalculate totalWorkingMinutes (handling overnight)
     const [inH, inM] = attendance.inTime.split(":").map(Number);
     const [outH, outM] = attendance.outTime.split(":").map(Number);
-    attendance.totalWorkingMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+
+    let totalMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+    if (totalMinutes < 0) totalMinutes += 1440; // Support overnight shifts
+    attendance.totalWorkingMinutes = totalMinutes;
+
+    // Recalculate lateByMinutes
+    if (shift && shift.startTime) {
+      const [shiftH, shiftM] = shift.startTime.split(":").map(Number);
+      const lateMinutes = (inH * 60 + inM) - (shiftH * 60 + shiftM);
+      attendance.lateByMinutes = Math.max(0, lateMinutes);
+    }
+
+    // Recalculate overtimeMinutes
+    attendance.overtimeMinutes = Math.max(0, totalMinutes - shiftDurationMinutes);
+
+    // Mark as regularized
+    if (!attendance.isRegularized) {
+      attendance.originalStatus = oldData.status;
+      attendance.isRegularized = true;
+    }
 
     await attendance.save();
 
