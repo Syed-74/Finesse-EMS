@@ -24,7 +24,15 @@ export const punchIn = async (req, res) => {
     }
 
     const now = new Date();
-    // Support client-provided time for better local accuracy (optional but recommended)
+    // Debugging: Log the incoming request context
+    console.log(`[Punch-In] Request by: ${employeeProfile.email} at ${now.toISOString()}`);
+    console.log(`[Punch-In] Payload:`, { 
+      shiftId: req.body.shiftId, 
+      currentTime: req.body.currentTime, 
+      workLocation: req.body.workLocation 
+    });
+
+    // Support client-provided time for better local accuracy
     const currentTimeStr = req.body.currentTime || now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     
     // --- 🛠️ Robust Shift Discovery Logic ---
@@ -34,37 +42,34 @@ export const punchIn = async (req, res) => {
     if (req.body.shiftId && req.body.shiftId !== "null" && req.body.shiftId !== "undefined") {
       try {
         shift = await Shift.findById(req.body.shiftId);
-        if (shift) console.log(`Found shift by req.body.shiftId: ${shift.shiftType} (${shift.startTime})`);
+        if (shift) console.log(`[Shift Discovery] Found by req.body.shiftId: ${shift.shiftType}`);
       } catch (err) {
-        console.warn("Invalid shiftId in request body:", req.body.shiftId);
+        console.warn("[Shift Discovery] Invalid shiftId in request body:", req.body.shiftId);
       }
     }
 
     // 2. Fallback to Employee Profile shiftId (Database)
     if (!shift && employeeProfile.shiftId) {
       shift = employeeProfile.shiftId;
-      if (shift) console.log(`Found shift by employeeProfile.shiftId: ${shift.shiftType} (${shift.startTime})`);
+      if (shift) console.log(`[Shift Discovery] Found by employeeProfile.shiftId: ${shift.shiftType}`);
     }
 
     // 3. Final Fallback: Use shift string (Legacy/Manual)
     if (!shift) {
-      console.log(`No shiftId for ${employeeProfile.email}, attempting fallback using shift string: ${employeeProfile.shift}`);
       let searchType = employeeProfile.shift || "Morning";
-
-      // Normalize common shift names
       if (searchType.toUpperCase() === "DAY") searchType = "Morning";
       if (searchType.toUpperCase() === "NIGHT") searchType = "Night";
 
+      console.log(`[Shift Discovery] Attempting fallback using searchType: ${searchType}`);
       shift = await Shift.findOne({ shiftType: { $regex: new RegExp(`^${searchType}$`, "i") } });
 
       if (!shift) {
-        // Absolute last resort: Get the earliest available shift
         shift = await Shift.findOne().sort({ startTime: 1 });
-        if (shift) console.log(`Last resort fallback: Using earliest shift found: ${shift.shiftType} (${shift.startTime})`);
+        if (shift) console.log(`[Shift Discovery] Last resort fallback: Using earliest shift: ${shift.shiftType}`);
       }
 
       if (!shift) {
-        return res.status(400).json({ message: "No shift configuration found in system. Please contact Admin to configure shifts." });
+        return res.status(400).json({ message: "No shift configuration found. Please contact Admin." });
       }
     }
 
@@ -128,7 +133,6 @@ export const punchIn = async (req, res) => {
       });
     }
 
-    // IMPORTANT: The "date" of attendance is the Working Day (the date the shift starts)
     const workingDay = new Date(bestShiftStart);
     workingDay.setHours(0, 0, 0, 0);
 
@@ -140,15 +144,17 @@ export const punchIn = async (req, res) => {
 
     if (existing) {
       if (existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
-        console.log(`Overwriting auto-marked ${existing.status} record for ${employeeProfile.email}`);
+        console.log(`[Punch-In] Overwriting auto-marked record for ${workingDay.toLocaleDateString()}`);
       } else {
-        return res.status(400).json({ message: "Already punched in for this shift." });
+        return res.status(400).json({ 
+          message: `Already punched in for the ${shift.shiftType} shift on ${workingDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.` 
+        });
       }
     }
 
     const effectiveShiftStart = bestShiftStart;
 
-    // 3. Status Determination (Late/Present)
+    // 3. Status Determination
     let attendanceStatus = "Present";
     const lateThreshold = new Date(effectiveShiftStart.getTime() + 30 * 60 * 1000);
     if (now > lateThreshold) {
@@ -160,7 +166,6 @@ export const punchIn = async (req, res) => {
       lateByMinutes = Math.floor((now - effectiveShiftStart) / (1000 * 60));
     }
 
-    // Dynamic Mid-time for Half Day
     const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
     const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
 
@@ -185,16 +190,15 @@ export const punchIn = async (req, res) => {
       }
     }
 
-    // 4. Work Location & IP Validation
+    // 4. Validation
     const validation = await validateAttendanceLocation(req, employeeProfile);
-
     if (!validation.allowed) {
       return res.status(403).json({ message: validation.message });
     }
 
     const effectiveWorkMode = validation.workMode;
 
-    // 5. Process Location & Selfie
+    // 5. Process Files & Location
     let locationData = {};
     if (req.body.location) {
       try {
@@ -204,10 +208,9 @@ export const punchIn = async (req, res) => {
 
     const selfieUrl = req.file ? `/uploads/${req.file.filename}` : null;
     if (!selfieUrl) {
-      return res.status(400).json({ message: "Selfie is mandatory for attendance." });
+      return res.status(400).json({ message: "Selfie is mandatory for attendance validation." });
     }
 
-    // 6. Create or Update Attendance Record
     const attendanceData = {
       employee: employeeId,
       date: workingDay,
@@ -228,13 +231,14 @@ export const punchIn = async (req, res) => {
       attendance = await Attendance.create(attendanceData);
     }
 
+    console.log(`[Punch-In] Success: ${employeeProfile.email} - Status: ${attendanceStatus}`);
     res.status(201).json({
       message: `Punch in successful. Status: ${attendanceStatus}`,
       attendance
     });
   } catch (error) {
-    console.error("Punch In Error:", error);
-    res.status(500).json({ message: error.message });
+    console.error("[Punch-In] CRITICAL ERROR:", error);
+    res.status(500).json({ message: "Internal Server Error. Please contact support." });
   }
 };
 
