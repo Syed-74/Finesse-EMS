@@ -79,10 +79,13 @@ class EmployeeService {
 
         // 4️⃣ Update existing employee
         if (employee) {
-            // Ensure existing employee has an employeeId (required by schema)
-            if (!employee.employeeId) {
-                employee.employeeId = employeeCode || await this.generateEmployeeId();
+            // Priority: Always use Graph employeeCode if available, otherwise keep existing/generate
+            if (employeeCode) {
+                employee.employeeId = employeeCode;
+            } else if (!employee.employeeId) {
+                employee.employeeId = await this.generateEmployeeId();
             }
+
             Object.assign(employee, updateFields);
             await employee.save();
             return employee;
@@ -92,6 +95,7 @@ class EmployeeService {
         const empId = employeeCode || await this.generateEmployeeId();
         const newEmployee = await Employee.create({
             employeeId: empId,
+            employeeCode: employeeCode || null, // Also store in auxiliary field for reference
             email,
             ...updateFields,
             dateOfJoining: new Date(),

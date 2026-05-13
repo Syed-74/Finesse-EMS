@@ -281,7 +281,7 @@ const EmployeeSettings = () => {
                   <div className="p-2.5 bg-slate-800 rounded-xl text-indigo-400 group-hover:scale-110 transition-transform">
                     <Shield className="w-5 h-5" />
                   </div>
-                  <span className="text-lg font-black tracking-widest uppercase">{profileData.employeeCode || profileData._id?.substring(0, 8).toUpperCase()}</span>
+                  <span className="text-lg font-black tracking-widest uppercase">{profileData.employeeId || (typeof profileData._id === 'string' ? profileData._id.substring(0, 8).toUpperCase() : '---')}</span>
                 </div>
               </div>
 

@@ -185,15 +185,18 @@ const EmployeeAttendance = () => {
     today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const candidates = [
       getShiftInstance(yesterday, shift.startTime),
-      getShiftInstance(today, shift.startTime)
+      getShiftInstance(today, shift.startTime),
+      getShiftInstance(tomorrow, shift.startTime)
     ];
 
     let bestShiftStart = null;
-    const EARLY_WINDOW_MS = 30 * 60 * 1000;
-    const LATE_WINDOW_MS = 12 * 60 * 60 * 1000;
+    const EARLY_WINDOW_MS = 60 * 60 * 1000; // 1 hour early
+    const LATE_WINDOW_MS = 16 * 60 * 60 * 1000; // 16 hours late
 
     for (const start of candidates) {
       const diff = currentTime - start;
@@ -210,7 +213,7 @@ const EmployeeAttendance = () => {
       const nextShift = getShiftInstance(today, shift.startTime);
       const allowedFrom = new Date(nextShift.getTime() - EARLY_WINDOW_MS);
       if (currentTime < allowedFrom) {
-        return showWarning(`Too early. Punch-in starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        return showWarning(`Too early. Punch-in for ${shift.shiftType} shift starts at ${allowedFrom.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
       return showWarning(`Outside valid shift window. Shift starts at ${shift.startTime}.`);
     }
@@ -223,7 +226,7 @@ const EmployeeAttendance = () => {
       const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
 
       if (todayLeave.half === "First Half" && currentTime < midTime) {
-        return showWarning(`First Half Leave Approved. Refresh and punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        return showWarning(`First Half Leave Approved. You can punch in after ${midTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       }
     }
 
@@ -241,6 +244,10 @@ const EmployeeAttendance = () => {
       formData.append("selfie", file);
       formData.append("location", JSON.stringify(location));
       formData.append("workLocation", effectiveMode);
+      
+      // Additional context for backend
+      formData.append("currentTime", currentTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      formData.append("timezoneOffset", new Date().getTimezoneOffset());
 
       // Pass shiftId for backend to correctly calculate timings
       if (shift && shift._id) {
@@ -259,8 +266,10 @@ const EmployeeAttendance = () => {
       const errData = err.response?.data;
       if (errData?.message) {
         setMessage(errData.message);
+        showError(errData.message);
       } else {
         setMessage("Punch In Failed. Please try again.");
+        showError("Punch In Failed. Please check your connection.");
       }
     } finally {
       setLoading(false);

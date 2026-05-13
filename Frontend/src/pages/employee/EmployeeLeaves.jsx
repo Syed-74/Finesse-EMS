@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
+const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
 
 /* =========================================
    COMPONENT: SMART CALENDAR VIEW
@@ -273,6 +274,12 @@ const EmployeeLeaves = () => {
 
   const handleApply = async (e) => {
     e.preventDefault();
+
+    // Weekend Validation
+    if (isWeekend(parseISO(formData.startDate)) || isWeekend(parseISO(formData.endDate))) {
+      return toast.error("Selected dates include a weekend. Leave cannot be applied on Saturday or Sunday.");
+    }
+
     if (calculatedDays <= 0) return toast.error("Please select valid working days (Weekends & Holidays are excluded).");
 
     const userId = admin?._id || admin?.id;
@@ -603,7 +610,7 @@ const EmployeeLeaves = () => {
                     {item.attachment && (
                       <div className="mt-2">
                         <a
-                          href={`${API_BASE_URL}/uploads/${item.attachment}`}
+                          href={`${IMAGE_BASE_URL}/uploads/${item.attachment}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg w-fit"

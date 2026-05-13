@@ -50,7 +50,7 @@ const Topbar = ({ toggleSidebar }) => {
   const empData = admin?.employeeId || {};
   const designation = empData.designation || admin?.designation || "Enterprise User";
   const department = empData.department || admin?.department || "Operations";
-  const employeeCode = empData.employeeCode || "N/A";
+  const employeeCode = empData.employeeId || admin?.employeeId || "N/A";
   const joiningDate = empData.dateOfJoining ? formatDate(empData.dateOfJoining) : "N/A";
   const lastLoginTime = admin?.security?.lastLoginTime ? formatDate(admin.security.lastLoginTime) : "Today";
 

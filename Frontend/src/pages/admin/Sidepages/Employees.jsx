@@ -131,6 +131,13 @@ export default function Employees() {
     return { active, pending, deactivated, rejected };
   }, [employees]);
 
+  const departments = useMemo(() => {
+    const depts = employees
+      .map(e => e.department)
+      .filter(d => d && d.trim() !== "");
+    return [...new Set(depts)].sort();
+  }, [employees]);
+
   // Validation
   const validateCurrentStep = () => {
     return true;
@@ -786,12 +793,15 @@ export default function Employees() {
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
           </select>
-          <select className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <select 
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            value={roleFilter} 
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
             <option value="All">All Departments</option>
-            <option value="Engineering">Engineering</option>
-            <option value="HR">HR</option>
-            <option value="Sales">Sales</option>
-            <option value="Marketing">Marketing</option>
+            {departments.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -818,6 +828,7 @@ export default function Employees() {
                         />
                     </th>
                 )}
+                <th className="px-6 py-4 font-semibold text-gray-700">Emp ID</th>
                 <th className="px-6 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('firstName')}>
                   <div className="flex items-center gap-2">Name {sortConfig.key === 'firstName' && (sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}</div>
                 </th>
@@ -852,6 +863,11 @@ export default function Employees() {
                             />
                         </td>
                     )}
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                        {emp.employeeId || '---'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <ProfileAvatar user={emp} className="w-10 h-10 shrink-0" />

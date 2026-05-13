@@ -201,7 +201,7 @@ export const payrollController = {
       const payroll = await Payroll.create({
         employee: employeeId,
         employeeDetails: {
-          employeeCode: employee.employeeCode,
+          employeeId: employee.employeeId,
           fullName: `${employee.firstName} ${employee.lastName}`,
           department: employee.department,
           designation: employee.designation,
@@ -379,7 +379,7 @@ export const payrollController = {
   getAll: async (req, res) => {
     try {
       const payrolls = await Payroll.find()
-        .populate("employee", "firstName lastName employeeCode")
+        .populate("employee", "firstName lastName employeeId profileImage")
         .sort({ year: -1, month: -1 });
 
       res.json(payrolls);

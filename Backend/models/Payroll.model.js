@@ -19,9 +19,8 @@ const payrollSchema = new mongoose.Schema(
     ========================= */
 
     employeeDetails: {
-      employeeCode: {
+      employeeId: {
         type: String,
-        // Optional because it's not always required in Employee model
       },
       fullName: {
         type: String,

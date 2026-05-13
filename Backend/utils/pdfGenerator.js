@@ -76,7 +76,7 @@ export const generatePayslipPDF = (payroll, res) => {
 
    // Column 1
    drawInfoRow('Employee Name', payroll.employeeDetails.fullName, marginLeft, currentY, 200);
-   drawInfoRow('Employee ID', payroll.employeeDetails.employeeCode, marginLeft, currentY + 40, 200);
+   drawInfoRow('Employee ID', payroll.employeeDetails.employeeId, marginLeft, currentY + 40, 200);
    drawInfoRow('Department', payroll.employeeDetails.department, marginLeft, currentY + 80, 200);
 
    // Column 2

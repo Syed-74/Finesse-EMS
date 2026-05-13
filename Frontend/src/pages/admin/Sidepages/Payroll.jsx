@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "../../../api/axios"; // Using centralized instance
+import ProfileAvatar from "../../../components/ProfileAvatar";
 import {
   Plus, Search, Filter, MoreVertical, Download,
   Trash2, Edit, CheckCircle, Clock, CreditCard,
   Users, DollarSign, FileText, ChevronRight, X, Eye,
-  Calendar
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
@@ -242,12 +244,17 @@ const Payroll = () => {
                 <tr key={payroll._id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
-                        {(payroll.employeeDetails?.fullName || "??").split(' ').map(n => n[0]).join('')}
-                      </div>
+                      <ProfileAvatar 
+                        user={payroll.employee || { 
+                          firstName: (payroll.employeeDetails?.fullName || "").split(' ')[0], 
+                          lastName: (payroll.employeeDetails?.fullName || "").split(' ')[1] || '',
+                          profileImage: null 
+                        }} 
+                        className="w-10 h-10 rounded-full text-[10px]" 
+                      />
                       <div>
                         <p className="text-sm font-semibold text-gray-800">{payroll.employeeDetails?.fullName || "N/A"}</p>
-                        <p className="text-xs text-gray-400">#{payroll.employeeDetails?.employeeCode || "---"}</p>
+                        <p className="text-xs text-gray-400">#{payroll.employeeDetails?.employeeId || "---"}</p>
                       </div>
                     </div>
                   </td>
@@ -561,7 +568,7 @@ const PayrollModal = ({ isOpen, onClose, employees, isEdit, data, refresh }) => 
                 >
                   <option value="">Select Employee</option>
                   {employees.map(emp => (
-                    <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeCode})</option>
+                    <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>
                   ))}
                 </select>
               </div>
@@ -835,13 +842,18 @@ const PayrollDetailsModal = ({ isOpen, onClose, payroll, handleAction, handleDow
         <div className="p-8 space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
           {/* Employee Identity Card */}
           <div className="flex items-center gap-5 p-6 bg-slate-50/50 rounded-[1.5rem] border border-slate-100">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-100">
-              {payroll.employeeDetails.fullName.split(' ').map(n => n[0]).join('')}
-            </div>
+            <ProfileAvatar 
+              user={payroll.employee || { 
+                firstName: payroll.employeeDetails.fullName.split(' ')[0], 
+                lastName: payroll.employeeDetails.fullName.split(' ')[1] || '',
+                profileImage: null 
+              }} 
+              className="w-16 h-16 rounded-2xl text-xl shadow-lg shadow-indigo-100" 
+            />
             <div className="flex-1">
               <h4 className="text-lg font-black text-slate-800 leading-tight">{payroll.employeeDetails.fullName}</h4>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                <IdentityBadge label="Code" value={payroll.employeeDetails.employeeCode} icon={<Users size={12} />} />
+                <IdentityBadge label="ID" value={payroll.employeeDetails.employeeId || payroll.employee?.employeeId || '---'} icon={<Users size={12} />} />
                 <IdentityBadge label="Dept" value={payroll.employeeDetails.department} icon={<FileText size={12} />} />
               </div>
             </div>
