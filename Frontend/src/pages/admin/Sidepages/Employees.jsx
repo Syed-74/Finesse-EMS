@@ -54,10 +54,13 @@ export default function Employees() {
 
   const { admin: authAdmin, loading: authLoading } = useAuth();
 
-  // Fetch Employees
+  const [shifts, setShifts] = useState([]);
+
+  // Fetch Employees & Shifts
   useEffect(() => {
     if (!authLoading && authAdmin) {
       fetchEmployees();
+      fetchShifts();
     }
   }, [authLoading, authAdmin]);
 
@@ -71,6 +74,15 @@ export default function Employees() {
       console.error("Failed to fetch employees", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShifts = async () => {
+    try {
+      const res = await axios.get("/shifts/all");
+      setShifts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to fetch shifts", err);
     }
   };
 
@@ -533,16 +545,27 @@ export default function Employees() {
               </div>
             )}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Shift</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Assigned Shift</label>
               <select
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                value={currentEmployee.shift}
-                onChange={e => setCurrentEmployee({ ...currentEmployee, shift: e.target.value })}
+                value={currentEmployee.shiftId?._id || currentEmployee.shiftId || ""}
+                onChange={e => {
+                  const selectedShift = shifts.find(s => s._id === e.target.value);
+                  setCurrentEmployee({ 
+                    ...currentEmployee, 
+                    shiftId: e.target.value,
+                    shift: selectedShift ? selectedShift.shiftType : currentEmployee.shift
+                  });
+                }}
               >
-                <option value="DAY">Day Shift</option>
-                <option value="NIGHT">Night Shift</option>
-                <option value="CUSTOM">Custom</option>
+                <option value="">-- No Shift Assigned --</option>
+                {shifts.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.shiftType} ({s.startTime} - {s.endTime})
+                  </option>
+                ))}
               </select>
+              <p className="text-[10px] text-gray-400 mt-1 italic">Explicitly link employee to a shift configuration.</p>
             </div>
           </div>
         );

@@ -34,14 +34,16 @@ export const punchIn = async (req, res) => {
     if (req.body.shiftId && req.body.shiftId !== "null" && req.body.shiftId !== "undefined") {
       try {
         shift = await Shift.findById(req.body.shiftId);
+        if (shift) console.log(`Found shift by req.body.shiftId: ${shift.shiftType} (${shift.startTime})`);
       } catch (err) {
         console.warn("Invalid shiftId in request body:", req.body.shiftId);
       }
     }
 
     // 2. Fallback to Employee Profile shiftId (Database)
-    if (!shift) {
+    if (!shift && employeeProfile.shiftId) {
       shift = employeeProfile.shiftId;
+      if (shift) console.log(`Found shift by employeeProfile.shiftId: ${shift.shiftType} (${shift.startTime})`);
     }
 
     // 3. Final Fallback: Use shift string (Legacy/Manual)
@@ -56,12 +58,13 @@ export const punchIn = async (req, res) => {
       shift = await Shift.findOne({ shiftType: { $regex: new RegExp(`^${searchType}$`, "i") } });
 
       if (!shift) {
-        // Absolute last resort: Get any available shift
-        shift = await Shift.findOne();
+        // Absolute last resort: Get the earliest available shift
+        shift = await Shift.findOne().sort({ startTime: 1 });
+        if (shift) console.log(`Last resort fallback: Using earliest shift found: ${shift.shiftType} (${shift.startTime})`);
       }
 
       if (!shift) {
-        return res.status(400).json({ message: "No shift configuration found in system. Please contact Admin." });
+        return res.status(400).json({ message: "No shift configuration found in system. Please contact Admin to configure shifts." });
       }
     }
 
@@ -92,18 +95,15 @@ export const punchIn = async (req, res) => {
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-    // Candidates: yesterday's shift, today's shift, and tomorrow's shift (for early punch-ins)
     const candidates = [
       getShiftInstance(yesterdayStart, shift.startTime),
       getShiftInstance(todayStart, shift.startTime),
       getShiftInstance(tomorrowStart, shift.startTime)
     ];
 
-    // Find the best fit: The shift that started most recently but no more than 16h ago (lenient for timezones), 
-    // OR the one starting in the next 1 hour.
     let bestShiftStart = null;
     const EARLY_WINDOW_MS = 60 * 60 * 1000; // 1 hour early
-    const LATE_WINDOW_MS = 16 * 60 * 60 * 1000; // 16 hours late (accommodates major timezone shifts)
+    const LATE_WINDOW_MS = 16 * 60 * 60 * 1000; // 16 hours late
 
     for (const start of candidates) {
       const diff = now - start;
@@ -119,12 +119,12 @@ export const punchIn = async (req, res) => {
 
       if (now < allowedFrom) {
         return res.status(400).json({
-          message: `Too early. Punch-in for shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
+          message: `Too early. Punch-in for ${shift.shiftType} shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
         });
       }
 
       return res.status(400).json({
-        message: `Outside valid shift window. Your shift starts at ${shift.startTime}.`
+        message: `Outside valid shift window. Your assigned shift (${shift.shiftType}) starts at ${shift.startTime}.`
       });
     }
 
