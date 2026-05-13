@@ -24,17 +24,23 @@ export const punchIn = async (req, res) => {
     }
 
     const now = new Date();
-    // Debugging: Log the incoming request context
-    console.log(`[Punch-In] Request by: ${employeeProfile.email} at ${now.toISOString()}`);
-    console.log(`[Punch-In] Payload:`, { 
-      shiftId: req.body.shiftId, 
-      currentTime: req.body.currentTime, 
-      workLocation: req.body.workLocation 
+    const currentTimeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    // 1. Check existing punch
+    let existing = await Attendance.findOne({
+      employee: employeeId,
+      date: today
     });
 
-    // Support client-provided time for better local accuracy
-    const currentTimeStr = req.body.currentTime || now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    
+    if (existing) {
+      // If it's an auto-marked "Absent" or "Leave" record, we allow "overwriting" it with a real punch-in
+      if (existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
+        console.log(`Overwriting auto-marked ${existing.status} record for ${employeeProfile.email}`);
+        // We will update this record later instead of creating a new one
+      } else {
+        return res.status(400).json({ message: "Already punched in today" });
+      }
+    }
+
     // --- 🛠️ Robust Shift Discovery Logic ---
     let shift = null;
 
@@ -42,40 +48,41 @@ export const punchIn = async (req, res) => {
     if (req.body.shiftId && req.body.shiftId !== "null" && req.body.shiftId !== "undefined") {
       try {
         shift = await Shift.findById(req.body.shiftId);
-        if (shift) console.log(`[Shift Discovery] Found by req.body.shiftId: ${shift.shiftType}`);
       } catch (err) {
-        console.warn("[Shift Discovery] Invalid shiftId in request body:", req.body.shiftId);
+        console.warn("Invalid shiftId in request body:", req.body.shiftId);
       }
     }
 
     // 2. Fallback to Employee Profile shiftId (Database)
-    if (!shift && employeeProfile.shiftId) {
+    if (!shift) {
       shift = employeeProfile.shiftId;
-      if (shift) console.log(`[Shift Discovery] Found by employeeProfile.shiftId: ${shift.shiftType}`);
     }
 
     // 3. Final Fallback: Use shift string (Legacy/Manual)
     if (!shift) {
+      console.log(`No shiftId for ${employeeProfile.email}, attempting fallback using shift string: ${employeeProfile.shift}`);
       let searchType = employeeProfile.shift || "Morning";
+
+      // Normalize common shift names
       if (searchType.toUpperCase() === "DAY") searchType = "Morning";
       if (searchType.toUpperCase() === "NIGHT") searchType = "Night";
 
-      console.log(`[Shift Discovery] Attempting fallback using searchType: ${searchType}`);
       shift = await Shift.findOne({ shiftType: { $regex: new RegExp(`^${searchType}$`, "i") } });
 
       if (!shift) {
-        shift = await Shift.findOne().sort({ startTime: 1 });
-        if (shift) console.log(`[Shift Discovery] Last resort fallback: Using earliest shift: ${shift.shiftType}`);
+        // Absolute last resort: Get any available shift
+        shift = await Shift.findOne();
       }
 
       if (!shift) {
-        return res.status(400).json({ message: "No shift configuration found. Please contact Admin." });
+        return res.status(400).json({ message: "No shift configuration found in system. Please contact Admin." });
       }
     }
 
-    // --- 🛠️ Shift Instance Calculation ---
+    // --- 🛠️ Robust Shift Discovery Logic ---
     const parseStartTime = (timeStr) => {
       if (!timeStr) return { h: 9, m: 0 };
+      // Handle "13:00" or "01:00 PM"
       const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
       if (!match) return { h: 9, m: 0 };
       let h = parseInt(match[1]);
@@ -93,22 +100,20 @@ export const punchIn = async (req, res) => {
       return d;
     };
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
+    // Candidates: yesterday's shift and today's shift
     const candidates = [
-      getShiftInstance(yesterdayStart, shift.startTime),
-      getShiftInstance(todayStart, shift.startTime),
-      getShiftInstance(tomorrowStart, shift.startTime)
+      getShiftInstance(yesterday, shift.startTime),
+      getShiftInstance(today, shift.startTime)
     ];
 
+    // Find the best fit: The shift that started most recently but no more than 12h ago, 
+    // OR the one starting in the next 30 mins.
     let bestShiftStart = null;
-    const EARLY_WINDOW_MS = 60 * 60 * 1000; // 1 hour early
-    const LATE_WINDOW_MS = 16 * 60 * 60 * 1000; // 16 hours late
+    const EARLY_WINDOW_MS = 30 * 60 * 1000;
+    const LATE_WINDOW_MS = 12 * 60 * 60 * 1000; // Allow punching in up to 12h late for night shifts
 
     for (const start of candidates) {
       const diff = now - start;
@@ -119,42 +124,25 @@ export const punchIn = async (req, res) => {
     }
 
     if (!bestShiftStart) {
-      const primaryTodayShift = getShiftInstance(todayStart, shift.startTime);
-      const allowedFrom = new Date(primaryTodayShift.getTime() - EARLY_WINDOW_MS);
+      // If no candidate fits, it means they are either way too early for today's shift 
+      // or way too late for yesterday's/today's.
+      const todayShift = getShiftInstance(today, shift.startTime);
+      const allowedFrom = new Date(todayShift.getTime() - EARLY_WINDOW_MS);
 
       if (now < allowedFrom) {
         return res.status(400).json({
-          message: `Too early. Punch-in for ${shift.shiftType} shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
+          message: `Too early. Punch-in for today's shift (${shift.startTime}) starts at ${allowedFrom.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
         });
       }
 
       return res.status(400).json({
-        message: `Outside valid shift window. Your assigned shift (${shift.shiftType}) starts at ${shift.startTime}.`
+        message: `Outside valid shift window. Shift starts at ${shift.startTime}.`
       });
-    }
-
-    const workingDay = new Date(bestShiftStart);
-    workingDay.setHours(0, 0, 0, 0);
-
-    // 1. Check existing punch for this working day
-    let existing = await Attendance.findOne({
-      employee: employeeId,
-      date: workingDay
-    });
-
-    if (existing) {
-      if (existing.autoMarked && (existing.status === "Absent" || existing.status === "Leave")) {
-        console.log(`[Punch-In] Overwriting auto-marked record for ${workingDay.toLocaleDateString()}`);
-      } else {
-        return res.status(400).json({ 
-          message: `Already punched in for the ${shift.shiftType} shift on ${workingDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.` 
-        });
-      }
     }
 
     const effectiveShiftStart = bestShiftStart;
 
-    // 3. Status Determination
+    // 3. Status Determination (Late/Present)
     let attendanceStatus = "Present";
     const lateThreshold = new Date(effectiveShiftStart.getTime() + 30 * 60 * 1000);
     if (now > lateThreshold) {
@@ -166,19 +154,21 @@ export const punchIn = async (req, res) => {
       lateByMinutes = Math.floor((now - effectiveShiftStart) / (1000 * 60));
     }
 
+    // Dynamic Mid-time for Half Day
     const shiftDurationMinutes = shift.duration ? (shift.duration * 60) : 540;
     const midTime = new Date(effectiveShiftStart.getTime() + (shiftDurationMinutes / 2) * 60 * 1000);
 
     const approvedLeave = await LeaveApplication.findOne({
       employeeId,
-      startDate: { $lte: workingDay },
-      endDate: { $gte: workingDay },
+      startDate: { $lte: today },
+      endDate: { $gte: today },
       status: "Approved",
       type: "Half Day"
     });
 
     if (approvedLeave) {
       if (approvedLeave.half === "First Half") {
+        // Must punch in AFTER mid-time
         if (now < midTime) {
           return res.status(400).json({
             message: `First Half Leave: You can only punch in after ${midTime.toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}`
@@ -186,19 +176,22 @@ export const punchIn = async (req, res) => {
         }
         attendanceStatus = "Half Day";
       } else if (approvedLeave.half === "Second Half") {
+        // Can punch in normally, but status is Half Day
+        // Optional: Enforcement to punch out early handled by policy
         attendanceStatus = "Half Day";
       }
     }
-
-    // 4. Validation
+    // 4. Work Location & IP Validation
     const validation = await validateAttendanceLocation(req, employeeProfile);
+
     if (!validation.allowed) {
       return res.status(403).json({ message: validation.message });
     }
 
     const effectiveWorkMode = validation.workMode;
 
-    // 5. Process Files & Location
+
+    // 5. Process Location & Selfie
     let locationData = {};
     if (req.body.location) {
       try {
@@ -208,37 +201,39 @@ export const punchIn = async (req, res) => {
 
     const selfieUrl = req.file ? `/uploads/${req.file.filename}` : null;
     if (!selfieUrl) {
-      return res.status(400).json({ message: "Selfie is mandatory for attendance validation." });
+      return res.status(400).json({ message: "Selfie is mandatory for attendance." });
     }
 
+    // 6. Create or Update Attendance Record
     const attendanceData = {
       employee: employeeId,
-      date: workingDay,
+      date: today,
       inTime: currentTimeStr,
-      status: attendanceStatus,
+      status: attendanceStatus, // Save the determined status (Late/Present/Half Day)
       workLocation: effectiveWorkMode,
       lateByMinutes,
       selfieUrl,
       location: locationData,
-      shiftType: shift.shiftType,
-      autoMarked: false,
+      shiftType: shift.shiftType, // Save the shift type
+      autoMarked: false, // It's a manual punch
     };
 
     let attendance;
     if (existing && existing.autoMarked) {
+      // Update existing auto-marked record
       attendance = await Attendance.findByIdAndUpdate(existing._id, attendanceData, { new: true });
     } else {
+      // Create new record
       attendance = await Attendance.create(attendanceData);
     }
 
-    console.log(`[Punch-In] Success: ${employeeProfile.email} - Status: ${attendanceStatus}`);
     res.status(201).json({
       message: `Punch in successful. Status: ${attendanceStatus}`,
       attendance
     });
   } catch (error) {
-    console.error("[Punch-In] CRITICAL ERROR:", error);
-    res.status(500).json({ message: "Internal Server Error. Please contact support." });
+    console.error("Punch In Error:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -253,36 +248,36 @@ export const punchOut = async (req, res) => {
     const employeeProfile = await Employee.findById(employeeId).populate("shiftId");
     const shift = employeeProfile?.shiftId;
 
+    // Network validation removed as per requirement.
+
+
     const shiftDurationMinutes = shift ? (shift.duration * 60) : 540;
-    
-    // Improved search: Find the most recent punch-in that doesn't have an outTime
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const attendance = await Attendance.findOne({
       employee: employeeId,
-      outTime: { $exists: false }
-    }).sort({ date: -1, createdAt: -1 });
+      date: today
+    });
 
     if (!attendance) {
-      return res.status(404).json({ message: "No active punch-in found. Please punch in first." });
+      return res.status(404).json({ message: "No punch in found for today" });
+    }
+
+    if (attendance.outTime) {
+      return res.status(400).json({ message: "Already punched out today" });
     }
 
     const outTime = new Date();
+
     const [inH, inM] = attendance.inTime.split(":").map(Number);
 
-    // Support Overnight Shifts: Calculate total minutes from the actual punch-in date/time
-    // Note: attendance.date stores the Working Day, but we should use createdAt or 
-    // a combined date/time for accurate duration if possible. 
-    // For now, we assume the punch-in was within 24h of now.
+    // Support Overnight Shifts
     const punchInDateTime = new Date(attendance.date);
     punchInDateTime.setHours(inH, inM, 0, 0);
-    
-    // If punch-in date-time is in the future compared to now (can happen with timezone shifts), 
-    // or if the duration seems impossible (> 24h), we need to adjust.
+
     let totalMinutes = Math.floor((outTime - punchInDateTime) / (1000 * 60));
-    
-    // If negative, it might be an overnight shift where we crossed midnight
-    if (totalMinutes < 0) totalMinutes += 1440; 
-    // If still negative or extreme, cap it
-    if (totalMinutes < 0) totalMinutes = 0;
+    if (totalMinutes < 0) totalMinutes = 0; // Guard
 
     attendance.outTime = outTime.toLocaleTimeString("en-GB", {
       hour: "2-digit",
