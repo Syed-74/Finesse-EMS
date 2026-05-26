@@ -7,6 +7,7 @@ import {
   updateAdminProfile,
   logoutAdmin,
   changePassword,
+  setPassword,
   updateAdminPreferences,
   syncAllUsers,
 } from "../controllers/admin.controller.js";
@@ -23,7 +24,8 @@ router.post("/logout", logoutAdmin);
 
 router.get("/profile", protectUser, getAdminProfile);
 router.put("/profile", protectAdmin, upload.single("profileImage"), updateAdminProfile);
-router.put("/change-password", protectAdmin, changePassword);
+router.post("/set-password", protectUser, setPassword);
+router.put("/change-password", protectUser, changePassword);
 router.put("/preferences", protectAdmin, updateAdminPreferences);
 router.post("/sync/all", protectAdmin, syncAllUsers);
 

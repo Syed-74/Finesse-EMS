@@ -177,7 +177,12 @@ export const getEmployeeProfile = async (req, res) => {
             return res.status(404).json({ message: "Employee profile not found" });
         }
 
-        res.json(employee);
+        const adminAccount = await Admin.findOne({ email }).select("+password");
+        const employeeObj = employee.toObject();
+        employeeObj.hasPassword = !!(adminAccount && adminAccount.password);
+        employeeObj.isSSOUser = !!(adminAccount && adminAccount.ssoProvider);
+
+        res.json(employeeObj);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

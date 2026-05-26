@@ -20,6 +20,7 @@ import {
   RefreshCcw
 } from "lucide-react";
 import { useAuth } from "../../AuthContext/AuthContext";
+import { toast } from "react-hot-toast";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
 
@@ -31,6 +32,106 @@ const EmployeeSettings = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+
+  // Account Security state
+  const [securityForm, setSecurityForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [securityLoading, setSecurityLoading] = useState(false);
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault();
+    if (!securityForm.newPassword || !securityForm.confirmPassword) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    if (securityForm.newPassword !== securityForm.confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+    if (securityForm.newPassword.length < 6 || securityForm.newPassword.length > 20) {
+      toast.error("Password must be between 6 and 20 characters.");
+      return;
+    }
+
+    setSecurityLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      setAuthHeader(token);
+      
+      const res = await axios.post("/auth/set-password", {
+        password: securityForm.newPassword,
+        confirmPassword: securityForm.confirmPassword
+      });
+
+      toast.success(res.data.message || "Password set successfully!");
+      
+      // Update local profileData so it hot-swaps to Change Password form immediately
+      setProfileData(prev => ({
+        ...prev,
+        hasPassword: true
+      }));
+
+      // Reset form fields
+      setSecurityForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+    } catch (error) {
+      console.error("Set password error:", error);
+      toast.error(error.response?.data?.message || "Failed to set password.");
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!securityForm.currentPassword || !securityForm.newPassword || !securityForm.confirmPassword) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    if (securityForm.newPassword !== securityForm.confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (securityForm.newPassword.length < 6 || securityForm.newPassword.length > 20) {
+      toast.error("Password must be between 6 and 20 characters.");
+      return;
+    }
+    if (securityForm.newPassword === securityForm.currentPassword) {
+      toast.error("New password cannot be the same as current password.");
+      return;
+    }
+
+    setSecurityLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      setAuthHeader(token);
+
+      const res = await axios.put("/auth/change-password", {
+        currentPassword: securityForm.currentPassword,
+        newPassword: securityForm.newPassword
+      });
+
+      toast.success(res.data.message || "Password changed successfully!");
+      
+      // Reset form fields
+      setSecurityForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+    } catch (error) {
+      console.error("Change password error:", error);
+      toast.error(error.response?.data?.message || "Failed to change password.");
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -371,6 +472,129 @@ const EmployeeSettings = () => {
                 <span className="text-base font-black text-slate-800 uppercase">{profileData.country || "N/A"}</span>
               </div>
             </div>
+          </div>
+
+          {/* Account Security Card */}
+          <div className="bg-white rounded-[2rem] p-6 md:p-10 border border-slate-200 shadow-xl shadow-slate-200/50">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-4 mb-8">
+              <Shield className="w-5 h-5 text-indigo-600" />
+              Account Security
+            </h3>
+
+            {/* Info Message Box */}
+            <div className={`p-5 rounded-3xl border mb-8 flex items-start gap-4 ${
+              !profileData.hasPassword 
+                ? "bg-amber-50 border-amber-100 text-amber-800" 
+                : "bg-indigo-50/50 border-indigo-100 text-indigo-900"
+            }`}>
+              <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${!profileData.hasPassword ? "text-amber-500" : "text-indigo-500"}`} />
+              <div>
+                <p className="font-bold text-sm">
+                  {!profileData.hasPassword 
+                    ? "Your account currently uses Microsoft SSO only. Create a password to enable email/password login."
+                    : "Your account supports both Microsoft SSO and email/password login."
+                  }
+                </p>
+                <p className="text-xs opacity-75 mt-1">
+                  Email Identity: <span className="font-mono font-bold">{profileData.email}</span> (Read-only)
+                </p>
+              </div>
+            </div>
+
+            {/* Conditional Forms */}
+            {!profileData.hasPassword ? (
+              <form onSubmit={handleSetPassword} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-indigo-600 focus:outline-none transition-all duration-200 font-bold text-slate-800"
+                      value={securityForm.newPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-indigo-600 focus:outline-none transition-all duration-200 font-bold text-slate-800"
+                      value={securityForm.confirmPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={securityLoading}
+                  className="w-full md:w-fit px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                >
+                  {securityLoading ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Set Password
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleChangePassword} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Password</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-indigo-600 focus:outline-none transition-all duration-200 font-bold text-slate-800"
+                    value={securityForm.currentPassword}
+                    onChange={(e) => setSecurityForm({ ...securityForm, currentPassword: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-indigo-600 focus:outline-none transition-all duration-200 font-bold text-slate-800"
+                      value={securityForm.newPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:bg-white focus:border-indigo-600 focus:outline-none transition-all duration-200 font-bold text-slate-800"
+                      value={securityForm.confirmPassword}
+                      onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={securityLoading}
+                  className="w-full md:w-fit px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                >
+                  {securityLoading ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Change Password
+                </button>
+              </form>
+            )}
           </div>
 
         </div>

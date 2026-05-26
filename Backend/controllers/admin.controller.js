@@ -189,9 +189,22 @@ export const loginAdmin = async (req, res) => {
 export const getAdminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.admin.id)
-      .select("-password")
       .populate("employeeId", "designation department employeeCode dateOfJoining workLocation");
-    res.json(admin);
+      
+    if (!admin) {
+      return res.status(404).json({ message: "Admin profile not found" });
+    }
+
+    const adminObj = admin.toObject();
+    // Fetch password explicitly to check if set
+    const adminWithPassword = await Admin.findById(req.admin.id).select("+password");
+    adminObj.hasPassword = !!(adminWithPassword && adminWithPassword.password);
+    adminObj.isSSOUser = !!(admin.ssoProvider);
+
+    // Securely remove password before sending response
+    delete adminObj.password;
+
+    res.json(adminObj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
