@@ -11,8 +11,10 @@ import employeeService from "../services/employee.service.js";
 const allowedDomains = ["finesse-cs.tech", "email.com"];
 
 const isAllowedEmail = (email) => {
-  if (!email) return false;
-  const domain = email.split("@")[1];
+  if (!email || typeof email !== "string") return false;
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex === -1 || atIndex === email.length - 1) return false;
+  const domain = email.substring(atIndex + 1).toLowerCase();
   return allowedDomains.includes(domain);
 };
 
