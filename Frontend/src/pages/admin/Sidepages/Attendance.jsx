@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";
 import {
@@ -721,170 +722,218 @@ const Attendance = () => {
       )}
 
       {/* ─── Proof Modal ─── */}
-      {viewingProof && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setViewingProof(null)}
-        >
-          <div
-            className="bg-white rounded-2xl overflow-hidden max-w-md w-full shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <div>
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wide">Attendance Details</h3>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  {viewingProof.employee?.firstName} {viewingProof.employee?.lastName}
-                </p>
-              </div>
+      <AnimatePresence>
+        {viewingProof && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingProof(null)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
               <button
                 onClick={() => setViewingProof(null)}
-                className="p-2 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors"
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
-            </div>
-            <div className="p-5 space-y-4">
-              {/* Selfie */}
-              <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-sm relative group">
-                <img
-                  src={`${IMAGE_BASE_URL}${viewingProof.selfieUrl}`}
-                  className="w-full h-full object-cover"
-                  alt="Selfie proof"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                   <p className="text-[10px] text-white font-black uppercase tracking-widest flex items-center gap-1">
-                      <Camera className="w-3 h-3" /> Verification Photo
-                   </p>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <Camera className="w-6 h-6" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Attendance Verification
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+                    {viewingProof.employee?.firstName} {viewingProof.employee?.lastName}
+                  </h3>
                 </div>
               </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                  <span className="block text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Working Time</span>
-                  <div className="text-sm font-black text-slate-800">{formatDuration(viewingProof.totalWorkingMinutes)}</div>
-                </div>
-                <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
-                  <span className="block text-[10px] text-amber-500 uppercase font-black tracking-widest mb-1">Break Time</span>
-                  <div className="text-sm font-black text-amber-700">{viewingProof.totalBreakMinutes || 0} min</div>
-                </div>
-              </div>
-
-              {/* Break History */}
-              {viewingProof.breaks?.length > 0 && (
-                <div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <Coffee className="w-3.5 h-3.5" /> Break History
-                  </h4>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                    {viewingProof.breaks.map((b, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs border border-slate-100">
-                        <span className="font-bold text-slate-600">{b.type}</span>
-                        <span className="font-mono font-bold text-indigo-600 italic">
-                          {b.startTime} - {b.endTime || "Active"}
-                        </span>
-                      </div>
-                    ))}
+              <div className="space-y-4">
+                {/* Selfie */}
+                <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-sm relative group">
+                  <img
+                    src={`${IMAGE_BASE_URL}${viewingProof.selfieUrl}`}
+                    className="w-full h-full object-cover"
+                    alt="Selfie proof"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                     <p className="text-[10px] text-white font-black uppercase tracking-widest flex items-center gap-1">
+                        <Camera className="w-3 h-3" /> Verification Photo
+                     </p>
                   </div>
                 </div>
-              )}
 
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                    <span className="block text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Working Time</span>
+                    <div className="text-sm font-black text-slate-800">{formatDuration(viewingProof.totalWorkingMinutes)}</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                    <span className="block text-[10px] text-amber-500 uppercase font-black tracking-widest mb-1">Break Time</span>
+                    <div className="text-sm font-black text-amber-700">{viewingProof.totalBreakMinutes || 0} min</div>
+                  </div>
+                </div>
 
+                {/* Break History */}
+                {viewingProof.breaks?.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <Coffee className="w-3.5 h-3.5" /> Break History
+                    </h4>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                      {viewingProof.breaks.map((b, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs border border-slate-100">
+                          <span className="font-bold text-slate-600">{b.type}</span>
+                          <span className="font-mono font-bold text-indigo-600 italic">
+                            {b.startTime} - {b.endTime || "Active"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-700 font-medium">
-                <MapPin className="w-4 h-4" />
-                <span>Loc: {viewingProof.location?.latitude?.toFixed(4)}, {viewingProof.location?.longitude?.toFixed(4)} ({viewingProof.workLocation || "Onsite"})</span>
+                <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-700 font-medium">
+                  <MapPin className="w-4 h-4" />
+                  <span>Loc: {viewingProof.location?.latitude?.toFixed(4)}, {viewingProof.location?.longitude?.toFixed(4)} ({viewingProof.workLocation || "Onsite"})</span>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* ─── Edit Modal ─── */}
-      {editingRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-wide">Update Attendance</h3>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Manual override for {editingRecord.employee?.firstName} {editingRecord.employee?.lastName}
-                </p>
-              </div>
+      <AnimatePresence>
+        {editingRecord && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingRecord(null)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8"
+            >
+              {/* Close Button */}
               <button
                 onClick={() => setEditingRecord(null)}
-                className="p-2 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors"
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
-            </div>
-            <form onSubmit={handleUpdate} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Status</label>
-                <select
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
-                  value={editingRecord.status}
-                  onChange={(e) => setEditingRecord({ ...editingRecord, status: e.target.value })}
-                >
-                  <option value="PRESENT">Present</option>
-                  <option value="ABSENT">Absent</option>
-                  <option value="LEAVE">Leave</option>
-                  <option value="HALF_DAY">Half Day</option>
-                </select>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">In Time</label>
-                  <input
-                    type="time"
-                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                    value={editingRecord.inTime || ""}
-                    onChange={(e) => setEditingRecord({ ...editingRecord, inTime: e.target.value })}
-                  />
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <Clock className="w-6 h-6" />
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Out Time</label>
-                  <input
-                    type="time"
-                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                    value={editingRecord.outTime || ""}
-                    onChange={(e) => setEditingRecord({ ...editingRecord, outTime: e.target.value })}
-                  />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Manual Override
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+                    Update Attendance
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-1">
+                    Manual override for {editingRecord.employee?.firstName} {editingRecord.employee?.lastName}
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Reason / Remarks</label>
-                <textarea
-                  required
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm min-h-[80px] resize-none focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-                  placeholder="Reason for this manual override..."
-                  value={editingRecord.remarks || ""}
-                  onChange={(e) => setEditingRecord({ ...editingRecord, remarks: e.target.value })}
-                />
-              </div>
+              <form onSubmit={handleUpdate} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</label>
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-semibold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                    value={editingRecord.status}
+                    onChange={(e) => setEditingRecord({ ...editingRecord, status: e.target.value })}
+                  >
+                    <option value="PRESENT">Present</option>
+                    <option value="ABSENT">Absent</option>
+                    <option value="LEAVE">Leave</option>
+                    <option value="HALF_DAY">Half Day</option>
+                  </select>
+                </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingRecord(null)}
-                  className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-sm transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm shadow-indigo-200"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">In Time</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                      value={editingRecord.inTime || ""}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, inTime: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Out Time</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                      value={editingRecord.outTime || ""}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, outTime: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Reason / Remarks</label>
+                  <textarea
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm min-h-[80px] resize-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-medium"
+                    placeholder="Reason for this manual override..."
+                    value={editingRecord.remarks || ""}
+                    onChange={(e) => setEditingRecord({ ...editingRecord, remarks: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRecord(null)}
+                    className="flex-1 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );

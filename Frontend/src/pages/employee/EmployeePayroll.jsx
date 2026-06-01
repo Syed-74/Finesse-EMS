@@ -254,7 +254,7 @@ const BreakdownModal = ({ isOpen, onClose, data, handleDownload }) => {
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md"
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}

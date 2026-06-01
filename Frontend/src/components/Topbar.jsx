@@ -47,11 +47,34 @@ const Topbar = ({ toggleSidebar }) => {
   };
 
   // Get Employee Data safely from populated field or admin object
-  const empData = admin?.employeeId || {};
-  const designation = empData.designation || admin?.designation || "Enterprise User";
-  const department = empData.department || admin?.department || "Operations";
-  const employeeCode = empData.employeeId || admin?.employeeId || "N/A";
-  const joiningDate = empData.dateOfJoining ? formatDate(empData.dateOfJoining) : "N/A";
+  const isEmployee = admin?.role === 'employee';
+  const empData = (isEmployee ? (typeof admin?.employeeId === 'object' ? admin.employeeId : admin) : {}) || {};
+  
+  // Safe extraction of fields to prevent ever rendering raw objects
+  const designation = typeof empData?.designation === 'string' 
+    ? empData.designation 
+    : (typeof admin?.designation === 'string' ? admin.designation : "Enterprise User");
+
+  const department = typeof empData?.department === 'string' 
+    ? empData.department 
+    : (typeof admin?.department === 'string' ? admin.department : "Operations");
+
+  const getEmployeeCode = () => {
+    if (!isEmployee) return "N/A";
+    if (typeof empData?.employeeCode === 'string') return empData.employeeCode;
+    if (typeof empData?.employeeId === 'string') return empData.employeeId;
+    if (typeof admin?.employeeId === 'string') return admin.employeeId;
+    return "N/A";
+  };
+  const employeeCode = getEmployeeCode();
+
+  const getJoiningDate = () => {
+    if (!isEmployee) return "N/A";
+    const dateVal = empData?.dateOfJoining || admin?.dateOfJoining;
+    return dateVal ? formatDate(dateVal) : "N/A";
+  };
+  const joiningDate = getJoiningDate();
+
   const lastLoginTime = admin?.security?.lastLoginTime ? formatDate(admin.security.lastLoginTime) : "Today";
 
   return (
@@ -149,46 +172,54 @@ const Topbar = ({ toggleSidebar }) => {
                   </div>
                 </div>
 
-                {/* Professional Insights Grid */}
-                <div className="px-6 py-4 grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
-                    <div className="flex items-center gap-2 mb-2 text-indigo-600">
-                      <CreditCard size={14} />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Employee ID</span>
+                {/* Employee-Specific Sections: Rendered only for Employee users */}
+                {admin?.role === 'employee' && (
+                  <>
+                    {/* Professional Insights Grid */}
+                    <div className="px-6 py-4 grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
+                        <div className="flex items-center gap-2 mb-2 text-indigo-600">
+                          <CreditCard size={14} />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Employee ID</span>
+                        </div>
+                        <p className="text-xs font-black text-slate-800">{employeeCode}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
+                        <div className="flex items-center gap-2 mb-2 text-purple-600">
+                          <Building2 size={14} />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Department</span>
+                        </div>
+                        <p className="text-xs font-black text-slate-800 truncate">{department}</p>
+                      </div>
                     </div>
-                    <p className="text-xs font-black text-slate-800">{employeeCode}</p>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
-                    <div className="flex items-center gap-2 mb-2 text-purple-600">
-                      <Building2 size={14} />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Department</span>
-                    </div>
-                    <p className="text-xs font-black text-slate-800 truncate">{department}</p>
-                  </div>
-                </div>
 
-                {/* Information List */}
-                <div className="px-6 space-y-1">
-                  <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Briefcase size={16} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Current Role</span>
-                      <span className="text-xs font-bold text-slate-700">{designation}</span>
-                    </div>
-                  </div>
+                    {/* Information List */}
+                    <div className="px-6 space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Briefcase size={16} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Current Role</span>
+                          <span className="text-xs font-bold text-slate-700">{designation}</span>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-                    <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Calendar size={16} />
+                      <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
+                        <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Calendar size={16} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Joined Date</span>
+                          <span className="text-xs font-bold text-slate-700">{joiningDate}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Joined Date</span>
-                      <span className="text-xs font-bold text-slate-700">{joiningDate}</span>
-                    </div>
-                  </div>
+                  </>
+                )}
 
+                {/* Email Section (Shared/Admin view) */}
+                <div className="px-6 space-y-1 mt-2">
                   <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
                     <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <Mail size={16} />

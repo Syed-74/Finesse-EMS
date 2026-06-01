@@ -134,7 +134,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700 font-sans">
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 max-w-[1800px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-700 font-sans">
 
       {/* 1. ADMIN HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 pb-8">

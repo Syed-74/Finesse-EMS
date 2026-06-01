@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "../../api/axios";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../AuthContext/AuthContext";
@@ -26,7 +27,8 @@ import {
   ChevronRight,
   Users,
   AlertCircle,
-  Briefcase
+  Briefcase,
+  X
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://finesse-ems.onrender.com/api';
@@ -333,7 +335,7 @@ const EmployeeLeaves = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10 font-sans">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
 
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row justify-between md:items-center">
@@ -646,197 +648,230 @@ const EmployeeLeaves = () => {
         </div>
 
         {/* DATE DETAIL MODAL (EMPLOYEE) */}
-        {dateDetail.show && (
-          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
-              <div className="p-8 border-b border-gray-50 flex justify-between items-start bg-gradient-to-br from-indigo-50/30 to-white">
-                <div>
-                  <span className="text-indigo-600 font-black uppercase text-[10px] tracking-widest mb-1 block">Day Navigator</span>
-                  <h3 className="text-2xl font-black text-gray-900">{format(dateDetail.date, "EEEE, MMMM do")}</h3>
-                </div>
-                <button onClick={() => setDateDetail({ ...dateDetail, show: false })}><XCircle size={24} className="text-gray-400" /></button>
-              </div>
+        <AnimatePresence>
+          {dateDetail.show && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setDateDetail({ ...dateDetail, show: false })}
+                className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+              />
 
-              <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                {/* Status List */}
-                <div className="space-y-4">
-                  {dateDetail.holiday && (
-                    <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-4">
-                      <div className="w-10 h-10 bg-red-100 text-red-600 rounded-xl flex items-center justify-center font-black">🎉</div>
-                      <div>
-                        <p className="font-bold text-gray-900">{dateDetail.holiday.holidayName}</p>
-                        <p className="text-[10px] font-bold text-red-600 uppercase italic">{dateDetail.holiday.holidayType} Holiday</p>
-                      </div>
-                    </div>
-                  )}
+              {/* Modal Content */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-lg bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8 flex flex-col max-h-[90vh] overflow-hidden"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setDateDetail({ ...dateDetail, show: false })}
+                  className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
-                  {dateDetail.personal && (
-                    <div className="p-5 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-4">
-                      <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center font-black">🗓️</div>
-                      <div>
-                        <p className="font-bold text-gray-900">Your {dateDetail.personal.leaveType} Leave</p>
-                        <p className="text-[10px] font-bold text-green-600 uppercase font-black">{dateDetail.personal.status}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Team Availability</h4>
-                    {dateDetail.teams.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {dateDetail.teams.map((t, idx) => (
-                          <div key={idx} className="bg-gray-50 p-4 rounded-2xl flex items-center gap-4 border border-gray-100">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">
-                              {t.employeeName[0]}
-                            </div>
-                            <div>
-                              <p className="font-bold text-gray-800 text-sm">{t.employeeName}</p>
-                              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">{t.leaveType} Leave</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400 italic">Everyone is available today.</p>
-                    )}
+                {/* Modal Header */}
+                <div className="flex items-center gap-4 mb-6 shrink-0">
+                  <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                    <CalendarIcon className="w-6 h-6" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                      Day Navigator
+                    </span>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+                      {format(dateDetail.date, "EEEE, MMMM do")}
+                    </h3>
                   </div>
                 </div>
 
-                {/* Quick Apply Action */}
-                {!dateDetail.personal && !isWeekend(dateDetail.date) && (!dateDetail.holiday || dateDetail.holiday.isOptional) && (
-                  <div className="pt-4 border-t border-gray-100 space-y-4">
-                    <div className="bg-indigo-50/50 p-6 rounded-3xl space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <PlusCircle size={18} className="text-indigo-600" />
-                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Quick Apply</h4>
+                {/* Scrollable Body */}
+                <div className="flex-1 overflow-y-auto space-y-6 mb-6 pr-1 custom-scrollbar">
+                  {/* Status List */}
+                  <div className="space-y-4">
+                    {dateDetail.holiday && (
+                      <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-4">
+                        <div className="w-10 h-10 bg-red-100 text-red-600 rounded-xl flex items-center justify-center font-black">🎉</div>
+                        <div>
+                          <p className="font-bold text-gray-900">{dateDetail.holiday.holidayName}</p>
+                          <p className="text-[10px] font-bold text-red-600 uppercase italic">{dateDetail.holiday.holidayType} Holiday</p>
+                        </div>
                       </div>
+                    )}
 
-                      <div className="space-y-3">
-                        <select
-                          className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100"
-                          value={formData.leaveType}
-                          onChange={(e) => setFormData(prev => ({ ...prev, leaveType: e.target.value }))}
-                        >
-                          <option value="">Select Leave Type</option>
-                          {Object.keys(balance).map(type => (
-                            <option key={type} value={type}>{type} ({balance[type]?.remaining || 0} left)</option>
+                    {dateDetail.personal && (
+                      <div className="p-5 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-4">
+                        <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center font-black">🗓️</div>
+                        <div>
+                          <p className="font-bold text-gray-900">Your {dateDetail.personal.leaveType} Leave</p>
+                          <p className="text-[10px] font-bold text-green-600 uppercase font-black">{dateDetail.personal.status}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Team Availability</h4>
+                      {dateDetail.teams.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-3">
+                          {dateDetail.teams.map((t, idx) => (
+                            <div key={idx} className="bg-gray-50 p-4 rounded-2xl flex items-center gap-4 border border-gray-100">
+                              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">
+                                {t.employeeName[0]}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-800 text-sm">{t.employeeName}</p>
+                                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">{t.leaveType} Leave</p>
+                              </div>
+                            </div>
                           ))}
-                        </select>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Everyone is available today.</p>
+                      )}
+                    </div>
+                  </div>
 
-                        <textarea
-                          className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100 h-20 resize-none"
-                          placeholder="Why are you taking leave?"
-                          value={formData.reason}
-                          onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-                        />
-
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                            Attachment {formData.leaveType === "Sick Leave" ? <span className="text-red-500">*</span> : "(Optional)"}
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            onChange={(e) => setFormData(prev => ({ ...prev, attachment: e.target.files[0] }))}
-                            className="w-full px-4 py-2 bg-white rounded-xl border border-indigo-100 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition duration-300"
-                          />
-                          {formData.leaveType === "Sick Leave" && !formData.attachment && (
-                            <p className="text-[9px] text-amber-600 font-bold uppercase mt-1 flex items-center gap-1">
-                              <AlertCircle size={10} /> Attachment is required for Sick Leave
-                            </p>
-                          )}
+                  {/* Quick Apply Action */}
+                  {!dateDetail.personal && !isWeekend(dateDetail.date) && (!dateDetail.holiday || dateDetail.holiday.isOptional) && (
+                    <div className="pt-4 border-t border-slate-100 space-y-4">
+                      <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100/50 space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <PlusCircle size={18} className="text-indigo-600" />
+                          <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Quick Apply</h4>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-3">
+                          <select
+                            className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                            value={formData.leaveType}
+                            onChange={(e) => setFormData(prev => ({ ...prev, leaveType: e.target.value }))}
+                          >
+                            <option value="">Select Leave Type</option>
+                            {Object.keys(balance).map(type => (
+                              <option key={type} value={type}>{type} ({balance[type]?.remaining || 0} left)</option>
+                            ))}
+                          </select>
+
+                          <textarea
+                            className="w-full px-4 py-3 bg-white rounded-xl border border-indigo-100 font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100 h-20 resize-none"
+                            placeholder="Why are you taking leave?"
+                            value={formData.reason}
+                            onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+                          />
+
                           <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Type</label>
-                            <div className="flex bg-white p-1 rounded-xl border border-indigo-100">
-                              {["Full Day", "Half Day"].map(t => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  onClick={() => setFormData(prev => ({ ...prev, type: t }))}
-                                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.type === t ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
-                                >
-                                  {t}
-                                </button>
-                              ))}
-                            </div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block ml-1">
+                              Attachment {formData.leaveType === "Sick Leave" ? <span className="text-red-500">*</span> : "(Optional)"}
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={(e) => setFormData(prev => ({ ...prev, attachment: e.target.files[0] }))}
+                              className="w-full px-4 py-2 bg-white rounded-xl border border-indigo-100 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-100 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition duration-300"
+                            />
+                            {formData.leaveType === "Sick Leave" && !formData.attachment && (
+                              <p className="text-[9px] text-amber-600 font-bold uppercase mt-1 flex items-center gap-1">
+                                <AlertCircle size={10} /> Attachment is required for Sick Leave
+                              </p>
+                            )}
                           </div>
-                          {formData.type === "Half Day" && (
+
+                          <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Half</label>
+                              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block ml-1">Type</label>
                               <div className="flex bg-white p-1 rounded-xl border border-indigo-100">
-                                {["First Half", "Second Half"].map(h => (
+                                {["Full Day", "Half Day"].map(t => (
                                   <button
-                                    key={h}
+                                    key={t}
                                     type="button"
-                                    onClick={() => setFormData({ ...formData, half: h })}
-                                    className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.half === h ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                    onClick={() => setFormData(prev => ({ ...prev, type: t }))}
+                                    className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.type === t ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
                                   >
-                                    {h[0]}st
+                                    {t}
                                   </button>
                                 ))}
                               </div>
                             </div>
-                          )}
-                        </div>
-
-                        {(!formData.leaveType || (balance[formData.leaveType]?.remaining < (formData.type === 'Half Day' ? 0.5 : 1))) && (
-                          <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
-                            <AlertCircle size={14} />
-                            {!formData.leaveType ? "Select a leave type to continue" : "Insufficient balance"}
+                            {formData.type === "Half Day" && (
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block ml-1">Half</label>
+                                <div className="flex bg-white p-1 rounded-xl border border-indigo-100">
+                                  {["First Half", "Second Half"].map(h => (
+                                    <button
+                                      key={h}
+                                      type="button"
+                                      onClick={() => setFormData({ ...formData, half: h })}
+                                      className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-tight rounded-lg transition-all ${formData.half === h ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                                    >
+                                      {h[0]}st
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
 
-                        <button
-                          disabled={!formData.leaveType || balance[formData.leaveType]?.remaining < 1 || submitLoading}
-                          onClick={async () => {
-                            if (formData.leaveType === "Sick Leave" && !formData.attachment) {
-                              return toast.error("Attachment is required for Sick Leave.");
-                            }
-                            try {
-                              setSubmitLoading(true);
-                              const uId = admin?._id || admin?.id;
-                              const submitData = new FormData();
-                              submitData.append("employeeId", uId);
-                              submitData.append("leaveType", formData.leaveType);
-                              submitData.append("startDate", format(dateDetail.date, "yyyy-MM-dd"));
-                              submitData.append("endDate", format(dateDetail.date, "yyyy-MM-dd"));
-                              submitData.append("employeeComment", formData.reason);
-                              submitData.append("isHalfDay", formData.type === 'Half Day');
-                              if (formData.type === 'Half Day') {
-                                submitData.append("half", formData.half);
+                          {(!formData.leaveType || (balance[formData.leaveType]?.remaining < (formData.type === 'Half Day' ? 0.5 : 1))) && (
+                            <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold flex items-center gap-2">
+                              <AlertCircle size={14} />
+                              {!formData.leaveType ? "Select a leave type to continue" : "Insufficient balance"}
+                            </div>
+                          )}
+
+                          <button
+                            disabled={!formData.leaveType || balance[formData.leaveType]?.remaining < 1 || submitLoading}
+                            onClick={async () => {
+                              if (formData.leaveType === "Sick Leave" && !formData.attachment) {
+                                return toast.error("Attachment is required for Sick Leave.");
                               }
-                              if (formData.attachment) {
-                                submitData.append("attachment", formData.attachment);
+                              try {
+                                setSubmitLoading(true);
+                                const uId = admin?._id || admin?.id;
+                                const submitData = new FormData();
+                                submitData.append("employeeId", uId);
+                                submitData.append("leaveType", formData.leaveType);
+                                submitData.append("startDate", format(dateDetail.date, "yyyy-MM-dd"));
+                                submitData.append("endDate", format(dateDetail.date, "yyyy-MM-dd"));
+                                submitData.append("employeeComment", formData.reason);
+                                submitData.append("isHalfDay", formData.type === 'Half Day');
+                                if (formData.type === 'Half Day') {
+                                  submitData.append("half", formData.half);
+                                }
+                                if (formData.attachment) {
+                                  submitData.append("attachment", formData.attachment);
+                                }
+                                
+                                await axios.post("/leaveapplication", submitData, {
+                                  headers: { "Content-Type": "multipart/form-data" }
+                                });
+                                toast.success("Leave applied successfully!");
+                                setDateDetail({ ...dateDetail, show: false });
+                                fetchData();
+                                setActiveTab("history");
+                              } catch (e) {
+                                toast.error(e.response?.data?.message || "Failed to apply");
+                              } finally {
+                                setSubmitLoading(false);
                               }
-                              
-                              await axios.post("/leaveapplication", submitData, {
-                                headers: { "Content-Type": "multipart/form-data" }
-                              });
-                              toast.success("Leave applied successfully!");
-                              setDateDetail({ ...dateDetail, show: false });
-                              fetchData();
-                              setActiveTab("history");
-                            } catch (e) {
-                              toast.error(e.response?.data?.message || "Failed to apply");
-                            } finally {
-                              setSubmitLoading(false);
-                            }
-                          }}
-                          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0"
-                        >
-                          {submitLoading ? "Processing..." : "Submit Application"}
-                        </button>
+                            }}
+                            className="w-full py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0"
+                          >
+                            {submitLoading ? "Processing..." : "Submit Application"}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

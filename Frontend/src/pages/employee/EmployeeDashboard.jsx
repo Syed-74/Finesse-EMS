@@ -120,7 +120,7 @@ const EmployeeDashboard = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-700 font-sans">
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 max-w-[1800px] mx-auto animate-in fade-in duration-700 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-indigo-600 font-bold tracking-wider uppercase text-[10px]">

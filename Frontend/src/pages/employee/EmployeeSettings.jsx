@@ -238,7 +238,7 @@ const EmployeeSettings = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 lg:p-12 space-y-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-4 md:p-8 lg:p-12 space-y-8 max-w-[1800px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-200 pb-8">
@@ -280,7 +280,7 @@ const EmployeeSettings = () => {
                     src={
                       previewImage ||
                       (profileData.profileImage
-                        ? `https://finesse-ems.onrender.com${profileData.profileImage}`
+                        ? `${API_BASE_URL.replace('/api', '')}${profileData.profileImage}`
                         : `https://ui-avatars.com/api/?name=${profileData.firstName}+${profileData.lastName}&background=6366f1&color=fff&size=200`)
                     }
                     alt="Profile"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "../../../api/axios";
 import {
   Shield,
@@ -366,42 +367,59 @@ const OfficeIPConfig = () => {
       </div>
 
       {/* ─── Configuration Modal ─── */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            
-            {/* Modal Header */}
-            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-indigo-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-xl shadow-indigo-100">
-                  <Server className="w-7 h-7" />
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeModal}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8"
+            >
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={closeModal}
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <Server className="w-6 h-6" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Office Network Protocol
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
                     {editingConfig ? "Edit Configuration" : "New Office Policy"}
                   </h3>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Office Network Protocol</p>
                 </div>
               </div>
-              <button 
-                onClick={closeModal}
-                className="p-3 rounded-2xl hover:bg-slate-100 text-slate-400 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="p-10 space-y-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Office Name */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                     <MapPin className="w-3.5 h-3.5" /> Office / Location Name
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Headquarters - Main Office"
-                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300"
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all placeholder:text-slate-300"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
@@ -420,7 +438,7 @@ const OfficeIPConfig = () => {
                       <input
                         type="text"
                         placeholder="Enter IPv4 or IPv6 (e.g. 192.168.1.1)"
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold font-mono text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all"
                         value={newIP}
                         onChange={(e) => setNewIP(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIP())}
@@ -429,7 +447,7 @@ const OfficeIPConfig = () => {
                     <button
                       type="button"
                       onClick={handleAddIP}
-                      className="px-8 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-200"
+                      className="px-6 py-3.5 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-200"
                     >
                       Authorize
                     </button>
@@ -438,15 +456,15 @@ const OfficeIPConfig = () => {
                   {/* Render Added IPs */}
                   <div className="flex flex-wrap gap-2 p-6 bg-slate-50 border border-dashed border-slate-200 rounded-3xl min-h-[100px] items-start">
                     {formData.allowedIPs.length === 0 ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center py-4 opacity-30">
-                        <Activity className="w-8 h-8 mb-2" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">No Authorized Nodes</p>
+                      <div className="w-full h-full flex flex-col items-center justify-center py-4 opacity-30 mx-auto">
+                        <Activity className="w-8 h-8 mb-2 mx-auto" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-center">No Authorized Nodes</p>
                       </div>
                     ) : (
                       formData.allowedIPs.map((ip, index) => (
                         <div 
                           key={index} 
-                          className="flex items-center gap-3 pl-4 pr-2 py-2.5 bg-white border border-slate-200 rounded-xl group hover:border-indigo-400 transition-all shadow-sm"
+                          className="flex items-center gap-3 pl-4 pr-2 py-2 bg-white border border-slate-200 rounded-xl group hover:border-indigo-400 transition-all shadow-sm"
                         >
                           <span className="text-xs font-black font-mono text-slate-600">{ip}</span>
                           <button
@@ -463,7 +481,7 @@ const OfficeIPConfig = () => {
                 </div>
 
                 {/* Status Toggle */}
-                <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-3xl border border-slate-100">
                   <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-2xl ${formData.isActive ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
                       <Check className="w-5 h-5" />
@@ -485,33 +503,33 @@ const OfficeIPConfig = () => {
                     />
                   </button>
                 </div>
-              </div>
 
-              {/* Modal Footer */}
-              <div className="px-10 py-8 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-8 py-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-all"
-                >
-                  Discard
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-10 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center gap-2"
-                >
-                  {saving ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                  ) : (
-                    <><CheckCircle className="w-4 h-4" /> Deploy Configuration</>
-                  )}
-                </button>
-              </div>
-            </form>
+                {/* Modal Footer */}
+                <div className="flex justify-end gap-4 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-6 py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider flex items-center gap-2"
+                  >
+                    {saving ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                    ) : (
+                      <><CheckCircle className="w-4 h-4" /> Deploy</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };

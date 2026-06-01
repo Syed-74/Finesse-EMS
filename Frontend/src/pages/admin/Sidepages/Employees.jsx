@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import ProfileAvatar from "../../../components/ProfileAvatar";
 import { useAuth } from "../../../AuthContext/AuthContext";
 import axios from "../../../api/axios";
@@ -18,7 +19,8 @@ import {
   MapPin,
   ArrowRight,
   ArrowLeft,
-  DollarSign
+  DollarSign,
+  X
 } from "lucide-react";
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
@@ -964,88 +966,116 @@ export default function Employees() {
       </div>
 
       {/* Stepper Edit Modal */}
-      {isEditOpen && currentEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsEditOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <AnimatePresence>
+        {isEditOpen && currentEmployee && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditOpen(false)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
 
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Edit Employee</h2>
-                <p className="text-sm text-gray-500">Update details for {currentEmployee.firstName}</p>
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden z-50 p-8"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <User className="w-6 h-6" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Employee Administration
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">Edit Employee</h3>
+                  <p className="text-xs text-slate-400 font-medium mt-1">Update details for {currentEmployee.firstName}</p>
+                </div>
               </div>
-              <button onClick={() => setIsEditOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100">✕</button>
-            </div>
 
-            {/* Stepper Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 overflow-x-auto">
-              <div className="flex items-center justify-between min-w-[300px]">
-                {STEPS.map((step, idx) => {
-                  const isActive = step.id === currentStep;
-                  const isCompleted = step.id < currentStep;
-                  const Icon = step.icon;
+              {/* Stepper Header */}
+              <div className="bg-slate-50 px-6 py-4 rounded-2xl border border-slate-100 overflow-x-auto mb-6">
+                <div className="flex items-center justify-between min-w-[300px]">
+                  {STEPS.map((step, idx) => {
+                    const isActive = step.id === currentStep;
+                    const isCompleted = step.id < currentStep;
+                    const Icon = step.icon;
 
-                  return (
-                    <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300 border-2 
-                            ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-110' :
-                            isCompleted ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}`}
-                      >
-                        {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                    return (
+                      <div key={step.id} className="flex flex-col items-center relative z-10 flex-1">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all duration-300 border-2 
+                              ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 scale-110' :
+                              isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-200 text-slate-400'}`}
+                        >
+                          {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                        </div>
+                        <span className={`text-[10px] font-bold ${isActive ? 'text-indigo-600 font-black' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                          {step.title}
+                        </span>
+                        {/* Connecting Line (except last) */}
+                        {idx !== STEPS.length - 1 && (
+                          <div className={`hidden md:block absolute top-5 left-1/2 w-full h-[2px] -z-10 ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                        )}
                       </div>
-                      <span className={`text-xs font-semibold ${isActive ? 'text-blue-700' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}>
-                        {step.title}
-                      </span>
-                      {/* Connecting Line (except last) */}
-                      {idx !== STEPS.length - 1 && (
-                        <div className={`hidden md:block absolute top-5 left-1/2 w-full h-[2px] -z-10 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* Modal Content - Scrollable */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              {renderStepContent()}
-            </div>
+              {/* Modal Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto mb-6 pr-1 custom-scrollbar">
+                {renderStepContent()}
+              </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-between bg-gray-50">
-              {currentStep > 1 ? (
-                <button
-                  onClick={() => setCurrentStep(currentStep - 1)}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-all"
-                >
-                  <ArrowLeft className="w-4 h-4" /> Back
-                </button>
-              ) : (
-                <div /> // Spacer
-              )}
+              {/* Modal Footer */}
+              <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                {currentStep > 1 ? (
+                  <button
+                    onClick={() => setCurrentStep(currentStep - 1)}
+                    className="px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider flex items-center gap-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </button>
+                ) : (
+                  <div /> // Spacer
+                )}
 
-              {currentStep < STEPS.length ? (
-                <button
-                  onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md transition-all"
-                >
-                  Next <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow-md transition-all"
-                >
-                  Save Changes <CheckCircle2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                {currentStep < STEPS.length ? (
+                  <button
+                    onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)}
+                    className="px-6 py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider flex items-center gap-2"
+                  >
+                    Next <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSave}
+                    className="px-6 py-3.5 bg-emerald-600 shadow-xl shadow-emerald-100 hover:bg-emerald-700 text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider flex items-center gap-2"
+                  >
+                    Save Changes <CheckCircle2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
 
     </div>

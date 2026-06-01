@@ -22,18 +22,30 @@ import TaskList from "./pages/admin/Sidepages/TaskList";
 import TaskDetailAdmin from "./pages/admin/Sidepages/TaskDetailAdmin";
 import OfficeIPConfig from "./pages/admin/Sidepages/OfficeIPConfig";
 import EmployeeTask from "./pages/employee/EmployeeTask";
+import ProtectedRoute from "./ProtectedRoute";
+import AccessDenied from "./pages/auth/AccessDenied";
 import { Toaster } from "react-hot-toast";
 import { ConfirmProvider } from "./context/ConfirmContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 
 
 function App() {
   return (
     <ConfirmProvider>
       <Routes>
+        {/* PUBLIC ROUTE */}
         <Route path="/" element={<Login />} />
 
-        {/* ADMIN */}
-        <Route element={<DashboardLayout role="admin" />}>
+        {/* ACCESS DENIED */}
+        <Route path="/403" element={<AccessDenied />} />
+
+        {/* SECURE ADMIN DESK */}
+        <Route element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <DashboardLayout role="admin" />
+          </ProtectedRoute>
+        }>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/employees" element={<Employees />} />
           <Route path="/admin/attendance" element={<Attendance />} />
@@ -49,8 +61,12 @@ function App() {
           <Route path="/admin/office-config" element={<OfficeIPConfig />} />
         </Route>
 
-        {/* EMPLOYEE */}
-        <Route element={<DashboardLayout role="employee" />}>
+        {/* SECURE EMPLOYEE WORKSPACE */}
+        <Route element={
+          <ProtectedRoute allowedRoles={["employee"]}>
+            <DashboardLayout role="employee" />
+          </ProtectedRoute>
+        }>
           <Route path="/employee" element={<EmployeeDashboard />} />
           <Route path="/employee/profile" element={<EmployeeSettings />} />
           <Route path="/employee/attendance" element={<EmployeeAttendance />} />

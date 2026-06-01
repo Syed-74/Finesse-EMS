@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "../../../api/axios";
 import {
   Clock,
@@ -12,7 +13,8 @@ import {
   ShieldCheck,
   Calendar,
   ArrowRight,
-  Edit3
+  Edit3,
+  X
 } from "lucide-react";
 import { showSuccess, showError, showWarning } from "../../../utils/toast";
 import { useConfirm } from "../../../context/ConfirmContext";
@@ -160,7 +162,7 @@ const ShiftManagement = () => {
   }
 
   return (
-    <div className="p-6 lg:p-10 space-y-10 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-10 space-y-10 max-w-[1800px] mx-auto">
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
@@ -310,141 +312,211 @@ const ShiftManagement = () => {
       </div>
 
       {/* Create Shift Modal */}
-      {showShiftModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 w-full max-w-md shadow-2xl relative border border-white/20">
-            <h3 className="text-2xl font-black text-slate-900 mb-8 tracking-tight">{editingShiftId ? 'Update Shift' : 'Create New Shift'}</h3>
-            <form onSubmit={handleCreateShift} className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Shift Type</label>
-                {/* <select 
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-400 outline-none transition-all appearance-none"
-                  value={newShift.shiftType}
-                  onChange={(e) => setNewShift({ ...newShift, shiftType: e.target.value })}
-                >
-                  <option value="Morning">Morning Shift</option>
-                  <option value="Afternoon">Afternoon Shift</option>
-                  <option value="Night">Night Shift</option>
-                </select> */}
-                <select
-                  value={newShift.shiftType}
-                  onChange={(e) => setNewShift({ ...newShift, shiftType: e.target.value })}
-                >
-                  {["Morning", "Afternoon", "Night"].map(type => {
-                    const exists = shifts.some(s => s.shiftType === type);
-                    return (
-                      <option key={type} value={type} disabled={exists && !editingShiftId}>
-                        {type} Shift {exists ? "(Already Created)" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Start Time</label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-400 outline-none transition-all font-mono"
-                    value={newShift.startTime}
-                    onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                    required
-                  />
+      <AnimatePresence>
+        {showShiftModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShiftModal(false)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowShiftModal(false)}
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <Clock className="w-6 h-6" />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">End Time</label>
-                  <input
-                    type="time"
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-400 outline-none transition-all font-mono"
-                    value={newShift.endTime}
-                    onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                    required
-                  />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Shift Scheduler
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+                    {editingShiftId ? 'Update Shift' : 'Create New Shift'}
+                  </h3>
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Total Duration (Hours)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="w-full bg-slate-100 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none transition-all mr-4 cursor-not-allowed"
-                  value={newShift.duration}
-                  readOnly
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowShiftModal(false)}
-                  className="flex-1 px-8 py-4 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 rounded-2xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-8 py-4 bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                >
-                  {editingShiftId ? 'Update Shift' : 'Create Shift'}
-                </button>
-              </div>
-            </form>
+
+              <form onSubmit={handleCreateShift} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Shift Type</label>
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                    value={newShift.shiftType}
+                    onChange={(e) => setNewShift({ ...newShift, shiftType: e.target.value })}
+                  >
+                    {["Morning", "Afternoon", "Night"].map(type => {
+                      const exists = shifts.some(s => s.shiftType === type);
+                      return (
+                        <option key={type} value={type} disabled={exists && !editingShiftId}>
+                          {type} Shift {exists ? "(Already Created)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Start Time</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-mono"
+                      value={newShift.startTime}
+                      onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">End Time</label>
+                    <input
+                      type="time"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all font-mono"
+                      value={newShift.endTime}
+                      onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Total Duration (Hours)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-2xl p-4 text-sm font-bold outline-none transition-all cursor-not-allowed text-slate-500"
+                    value={newShift.duration}
+                    readOnly
+                  />
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowShiftModal(false)}
+                    className="flex-1 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Assign Shift Modal */}
-      {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 w-full max-w-md shadow-2xl relative border border-white/20">
-            <h3 className="text-2xl font-black text-slate-900 mb-8 tracking-tight">Assign Roster</h3>
-            <form onSubmit={handleAssignShift} className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Select Employee</label>
-                <select
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-400 outline-none transition-all appearance-none"
-                  value={assignment.employeeId}
-                  onChange={(e) => setAssignment({ ...assignment, employeeId: e.target.value })}
-                  required
-                >
-                  <option value="">Choose Employee...</option>
-                  {employees.map(emp => (
-                    <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.department})</option>
-                  ))}
-                </select>
+      <AnimatePresence>
+        {showAssignModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAssignModal(false)}
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-[0_30px_70px_-10px_rgba(0,0,0,0.2)] border border-slate-100 z-50 p-8"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="p-2 hover:bg-slate-50 text-slate-400 rounded-xl transition-all active:scale-95 absolute top-6 right-6"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Modal Header */}
+              <div className="flex items-center gap-4 mb-6 ">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                  <UserPlus className="w-6 h-6" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 text-indigo-600">
+                    Roster Assignment
+                  </span>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+                    Assign Roster
+                  </h3>
+                </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Assign Shift</label>
-                <select
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-400 outline-none transition-all appearance-none"
-                  value={assignment.shiftId}
-                  onChange={(e) => setAssignment({ ...assignment, shiftId: e.target.value })}
-                  required
-                >
-                  <option value="">Choose Shift...</option>
-                  {shifts.map(shift => (
-                    <option key={shift._id} value={shift._id}>{shift.shiftType} ({shift.startTime} - {shift.endTime})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAssignModal(false)}
-                  className="flex-1 px-8 py-4 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 rounded-2xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-8 py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
-                >
-                  Assign Shift
-                </button>
-              </div>
-            </form>
+
+              <form onSubmit={handleAssignShift} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Select Employee</label>
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                    value={assignment.employeeId}
+                    onChange={(e) => setAssignment({ ...assignment, employeeId: e.target.value })}
+                    required
+                  >
+                    <option value="">Choose Employee...</option>
+                    {employees.map(emp => (
+                      <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.department})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Assign Shift</label>
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                    value={assignment.shiftId}
+                    onChange={(e) => setAssignment({ ...assignment, shiftId: e.target.value })}
+                    required
+                  >
+                    <option value="">Choose Shift...</option>
+                    {shifts.map(shift => (
+                      <option key={shift._id} value={shift._id}>{shift.shiftType} ({shift.startTime} - {shift.endTime})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignModal(false)}
+                    className="flex-1 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3.5 bg-[#0f172a] shadow-slate-900/10 hover:bg-[#1e293b] text-white font-bold rounded-2xl transition-all active:scale-95 text-xs uppercase tracking-wider"
+                  >
+                    Assign Shift
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );

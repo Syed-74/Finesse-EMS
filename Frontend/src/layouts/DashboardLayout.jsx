@@ -14,10 +14,8 @@ const DashboardLayout = ({ role }) => {
       <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
         <Topbar toggleSidebar={() => setOpen(!open)} />
 
-        <main className="p-4 md:p-8 mt-16 lg:mt-0">
-          <div className="max-w-7xl mx-auto">
-            <Outlet />
-          </div>
+        <main className="p-4 md:p-6 lg:p-8 mt-16 lg:mt-0 flex-1 w-full max-w-[1800px] mx-auto">
+          <Outlet />
         </main>
       </div>
     </div>
