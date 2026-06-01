@@ -330,7 +330,7 @@ export const ssoLogin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("SSO Login Error:", error);
+    console.error("CRITICAL SSO ERROR:", error);
     res.status(500).json({
       message: "SSO Processing Failed",
       error: error.message,

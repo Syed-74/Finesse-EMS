@@ -27,58 +27,46 @@ class AuthService {
      * @returns {Promise<Object>} - Updated Admin record
      */
     async syncAdminRecord(graphData, profileImageUrl) {
-        try {
-            const { email, firstName, lastName, microsoftId, mobileNumber } = graphData;
-            
-            // Find existing employee to link record
-            const employee = await Employee.findOne({ email });
+        const { email, firstName, lastName, microsoftId, mobileNumber } = graphData;
+        
+        // Find existing employee to link record
+        const employee = await Employee.findOne({ email });
 
-            let admin = await Admin.findOne({ email });
+        let admin = await Admin.findOne({ email });
 
-            if (!admin) {
-                const adminData = {
-                    firstName,
-                    lastName,
-                    email,
-                    mobileNumber: mobileNumber || '',
-                    password: '',
-                    ssoProvider: 'microsoft',
-                    ssoId: microsoftId,
-                    isActive: false,
-                    status: "PENDING",
-                    role: "employee", // Default role for new SSO registrations
-                    profileImage: profileImageUrl || "",
-                    lastGraphSync: new Date()
-                };
-
-                if (employee && employee._id) {
-                    adminData.employeeId = employee._id;
-                }
-
-                admin = await Admin.create(adminData);
-            } else {
-                // Keep existing isActive and status unless it's a legacy record with no status
-                if (!admin.status) {
-                    admin.status = "APPROVED";
-                    admin.isActive = true;
-                }
-                admin.firstName = firstName;
-                admin.lastName = lastName;
-                admin.ssoProvider = 'microsoft';
-                admin.ssoId = microsoftId || admin.ssoId;
-                admin.lastGraphSync = new Date();
-                if (profileImageUrl) admin.profileImage = profileImageUrl;
-                if (employee && employee._id) {
-                    admin.employeeId = employee._id;
-                }
-                await admin.save();
+        if (!admin) {
+            admin = await Admin.create({
+                firstName,
+                lastName,
+                email,
+                mobileNumber: mobileNumber || '',
+                password: '',
+                ssoProvider: 'microsoft',
+                ssoId: microsoftId,
+                isActive: false,
+                status: "PENDING",
+                role: "employee", // Default role for new SSO registrations
+                profileImage: profileImageUrl || "",
+                lastGraphSync: new Date(),
+                employeeId: employee?._id || null
+            });
+        } else {
+            // Keep existing isActive and status unless it's a legacy record with no status
+            if (!admin.status) {
+                admin.status = "APPROVED";
+                admin.isActive = true;
             }
-
-            return admin;
-        } catch (error) {
-            console.error("SSO Login Error in syncAdminRecord:", error);
-            throw error;
+            admin.firstName = firstName;
+            admin.lastName = lastName;
+            admin.ssoProvider = 'microsoft';
+            admin.ssoId = microsoftId || admin.ssoId;
+            admin.lastGraphSync = new Date();
+            if (profileImageUrl) admin.profileImage = profileImageUrl;
+            if (employee) admin.employeeId = employee._id;
+            await admin.save();
         }
+
+        return admin;
     }
 }
 
