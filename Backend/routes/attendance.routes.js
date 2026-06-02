@@ -12,7 +12,8 @@ import {
   getRegularizationRequests,
   approveRegularization,
   rejectRegularization,
-  getAuditLogs
+  getAuditLogs,
+  getAttendanceStats
 } from "../controllers/attendance.controller.js";
 import { protectAdmin } from "../middleware/adminAuth.middleware.js";
 import { protectEmployee } from "../middleware/employeeAuth.middleware.js";
@@ -57,6 +58,7 @@ router.get("/debug-my-shift", protectEmployee, async (req, res) => {
 
 
 // Admin view
+router.get("/stats", protectAdmin, getAttendanceStats);
 router.get("/employee/:employeeId", protectAdmin, getEmployeeAttendance);
 router.get("/all", protectAdmin, getAllAttendance); // Dashboard View
 router.put("/:id", protectAdmin, updateAttendance); // Edit

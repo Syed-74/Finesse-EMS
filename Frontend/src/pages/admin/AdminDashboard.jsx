@@ -46,31 +46,31 @@ const AdminDashboard = () => {
       // Configure individual requests with token
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      const [empRes, leaveStatRes, attendanceRes, activityRes] = await Promise.all([
+      const [empRes, leaveStatRes, attendanceStatsRes, activityRes] = await Promise.all([
         axios.get("/employees", config),
         axios.get("/leaveapplication/stats", config),
-        axios.get("/attendance/all?date=" + today, config),
+        axios.get("/attendance/stats?date=" + today, config),
         axios.get("/leaveapplication", config)
       ]);
 
-      // Process Attendance Status Counts
-      const attStats = { present: 0, late: 0, absent: 0 };
-      if (Array.isArray(attendanceRes.data)) {
-        attendanceRes.data.forEach(record => {
-          if (record.status === 'PRESENT') {
-            if (record.lateByMinutes > 0) attStats.late++;
-            else attStats.present++;
-          } else if (record.status === 'ABSENT') {
-            attStats.absent++;
-          }
-        });
-      }
+      const rawActivity = Array.isArray(activityRes.data?.data) ? activityRes.data.data.slice(0, 6) : [];
+      const mappedActivity = rawActivity.map(act => ({
+        leaveId: act._id,
+        employeeName: act.employeeId
+          ? `${act.employeeId.firstName} ${act.employeeId.lastName}`
+          : "Unknown Employee",
+        leaveType: act.leaveType,
+        totalDays: act.totalDays,
+        reason: act.employeeComment || "No comment",
+        appliedAt: act.createdAt,
+        status: act.status
+      }));
 
       setData({
         totalEmployees: Array.isArray(empRes.data) ? empRes.data.length : 0,
         leaveStats: leaveStatRes.data || { totalRequests: 0, pending: 0, onLeaveToday: 0 },
-        attendanceToday: attStats,
-        recentActivity: Array.isArray(activityRes.data?.data) ? activityRes.data.data.slice(0, 6) : []
+        attendanceToday: attendanceStatsRes.data || { present: 0, late: 0, absent: 0 },
+        recentActivity: mappedActivity
       });
     } catch (error) {
       console.error("Dashboard Sync Error:", error);

@@ -168,6 +168,16 @@ export const updateTaskStatus = async (req, res) => {
       return res.status(403).json({ message: "Not assigned to this task" });
     }
 
+    const currentStatus = employeeTask.status;
+
+    // Enforce status transition flow: Pending -> In Progress -> Completed
+    if (currentStatus === "In Progress" && status === "Pending") {
+      return res.status(400).json({ message: "Task status cannot be moved to a previous stage." });
+    }
+    if (currentStatus === "Completed" && (status === "In Progress" || status === "Pending")) {
+      return res.status(400).json({ message: "Task status cannot be moved to a previous stage." });
+    }
+
     employeeTask.status = status;
     employeeTask.updatedAt = new Date();
 

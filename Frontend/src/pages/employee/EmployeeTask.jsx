@@ -74,13 +74,47 @@ const EmployeeTask = () => {
 
     const handleUpdateStatus = async (newStatus) => {
         if (!selectedTask) return;
+
+        const currentEmployeeId = user?.employeeId?._id || user?.employeeId || user?._id;
+        const myAssignment = selectedTask.assignedTo.find(a => {
+            const empId = a.employee?._id || a.employee;
+            return empId?.toString() === currentEmployeeId?.toString();
+        });
+        const myStatus = myAssignment?.status || "Pending";
+
+        // Prevent moving backwards client-side
+        if (myStatus === "In Progress" && newStatus === "Pending") {
+            showError("Task status cannot be moved to a previous stage.");
+            return;
+        }
+        if (myStatus === "Completed" && (newStatus === "In Progress" || newStatus === "Pending")) {
+            showError("Task status cannot be moved to a previous stage.");
+            return;
+        }
+
+        // Optimistic UI Update
+        const updatedAssignedTo = selectedTask.assignedTo.map(a => {
+            const empId = a.employee?._id || a.employee;
+            if (empId?.toString() === currentEmployeeId?.toString()) {
+                return { ...a, status: newStatus };
+            }
+            return a;
+        });
+
+        setSelectedTask(prev => ({
+            ...prev,
+            assignedTo: updatedAssignedTo
+        }));
+
         try {
             await api.put(`/tasks/update-status/${selectedTask._id}`, { status: newStatus });
             showSuccess(`Status updated to ${newStatus}`);
             fetchTaskDetail(selectedTask._id);
             fetchTasks(); // Refresh list to show updated status
         } catch (err) {
-            showError("Failed to update status");
+            const errMsg = err.response?.data?.message || "Failed to update status";
+            showError(errMsg);
+            fetchTaskDetail(selectedTask._id); // Rollback on error
         }
     };
 
@@ -143,7 +177,11 @@ const EmployeeTask = () => {
         }
 
         // Find current user's status in persistent array
-        const myAssignment = selectedTask.assignedTo.find(a => a.employee._id === user?._id || a.employee === user?._id);
+        const currentEmployeeId = user?.employeeId?._id || user?.employeeId || user?._id;
+        const myAssignment = selectedTask.assignedTo.find(a => {
+            const empId = a.employee?._id || a.employee;
+            return empId?.toString() === currentEmployeeId?.toString();
+        });
         const myStatus = myAssignment?.status || "Pending";
 
         return (
@@ -211,23 +249,35 @@ const EmployeeTask = () => {
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <button 
+                                        disabled={myStatus === 'In Progress' || myStatus === 'Completed'}
                                         onClick={() => handleUpdateStatus("Pending")}
-                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
-                                            ${myStatus === 'Pending' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all duration-300
+                                            ${myStatus === 'Pending' 
+                                                ? 'bg-indigo-600 text-white shadow-lg' 
+                                                : (myStatus === 'In Progress' || myStatus === 'Completed')
+                                                    ? 'bg-white/5 text-slate-600 opacity-40 cursor-not-allowed'
+                                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+                                            }`}
                                     >
                                         <Clock className="w-4 h-4" /> Pending
                                     </button>
                                     <button 
+                                        disabled={myStatus === 'Completed'}
                                         onClick={() => handleUpdateStatus("In Progress")}
-                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
-                                            ${myStatus === 'In Progress' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all duration-300
+                                            ${myStatus === 'In Progress' 
+                                                ? 'bg-indigo-600 text-white shadow-lg' 
+                                                : myStatus === 'Completed'
+                                                    ? 'bg-white/5 text-slate-600 opacity-40 cursor-not-allowed'
+                                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+                                            }`}
                                     >
                                         <Activity className="w-4 h-4" /> In Progress
                                     </button>
                                     <button 
                                         onClick={() => handleUpdateStatus("Completed")}
-                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
-                                            ${myStatus === 'Completed' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                        className={`flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all duration-300
+                                            ${myStatus === 'Completed' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'}`}
                                     >
                                         <CheckCircle2 className="w-4 h-4" /> Completed
                                     </button>
@@ -320,12 +370,11 @@ const EmployeeTask = () => {
                         console.log("Task assignedTo:", task.assignedTo);
                         console.log("Match Criteria - User ID:", user?._id, "or Employee ID:", user?.employeeId);
 
-                        const myAssignment = task.assignedTo?.find(a => 
-                            a.employee === user?._id || 
-                            a.employee?._id === user?._id || 
-                            a.employee === user?.employeeId ||
-                            a.employee?._id === user?.employeeId
-                        );
+                        const currentEmployeeId = user?.employeeId?._id || user?.employeeId || user?._id;
+                        const myAssignment = task.assignedTo?.find(a => {
+                            const empId = a.employee?._id || a.employee;
+                            return empId?.toString() === currentEmployeeId?.toString();
+                        });
                         const myStatus = myAssignment?.status || "Pending";
                         const isOverdue = dl < new Date() && myStatus !== "Completed";
 

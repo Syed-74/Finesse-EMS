@@ -704,3 +704,50 @@ export const getAuditLogs = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/* =========================
+   📈 ADMIN: GET ATTENDANCE STATS
+   ========================= */
+export const getAttendanceStats = async (req, res) => {
+  try {
+    const { date } = req.query;
+    let targetDate = getISTTime();
+
+    if (date) {
+      const [y, m, d] = date.split('-').map(Number);
+      targetDate = new Date(y, m - 1, d);
+    }
+
+    targetDate.setHours(0, 0, 0, 0);
+
+    const totalEmployees = await Employee.countDocuments({ isActive: true });
+    const records = await Attendance.find({ date: targetDate });
+
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+
+    records.forEach(record => {
+      const status = record.status;
+      if (status === "Present" || status === "WFH" || status === "Half Day") {
+        present++;
+      } else if (status === "Late") {
+        late++;
+      } else if (status === "Absent") {
+        absent++;
+      }
+    });
+
+    const recordedEmployeesCount = records.length;
+    const unrecordedCount = Math.max(0, totalEmployees - recordedEmployeesCount);
+    absent += unrecordedCount;
+
+    res.json({
+      present,
+      late,
+      absent
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
