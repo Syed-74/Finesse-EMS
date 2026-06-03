@@ -27,18 +27,22 @@ class AuthService {
      * @returns {Promise<Object>} - Updated Admin record
      */
     async syncAdminRecord(graphData, profileImageUrl) {
+        if (!graphData || !graphData.email) {
+            throw new Error("Invalid Graph data: Email is required for Admin sync");
+        }
         const { email, firstName, lastName, microsoftId, mobileNumber } = graphData;
+        const normalizedEmail = email.trim().toLowerCase();
         
         // Find existing employee to link record
-        const employee = await Employee.findOne({ email });
+        const employee = await Employee.findOne({ email: normalizedEmail });
 
-        let admin = await Admin.findOne({ email });
+        let admin = await Admin.findOne({ email: normalizedEmail });
 
         if (!admin) {
             admin = await Admin.create({
-                firstName,
-                lastName,
-                email,
+                firstName: firstName || "Employee",
+                lastName: lastName || ".",
+                email: normalizedEmail,
                 mobileNumber: mobileNumber || '',
                 password: '',
                 ssoProvider: 'microsoft',
@@ -56,8 +60,8 @@ class AuthService {
                 admin.status = "APPROVED";
                 admin.isActive = true;
             }
-            admin.firstName = firstName;
-            admin.lastName = lastName;
+            admin.firstName = firstName || admin.firstName;
+            admin.lastName = lastName || admin.lastName;
             admin.ssoProvider = 'microsoft';
             admin.ssoId = microsoftId || admin.ssoId;
             admin.lastGraphSync = new Date();

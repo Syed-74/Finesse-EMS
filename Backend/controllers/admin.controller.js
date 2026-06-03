@@ -12,7 +12,9 @@ const allowedDomains = ["finesse-cs.tech", "email.com"];
 
 const isAllowedEmail = (email) => {
   if (!email) return false;
-  const domain = email.split("@")[1];
+  const parts = email.split("@");
+  if (parts.length < 2) return false;
+  const domain = parts[1].toLowerCase();
   return allowedDomains.includes(domain);
 };
 
@@ -242,15 +244,31 @@ export const updateAdminProfile = async (req, res) => {
 ========================= */
 export const ssoLogin = async (req, res) => {
   try {
+    if (!req.body) {
+      return res.status(400).json({ message: "Request body is missing" });
+    }
+
     const { name, email, accessToken } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required for SSO login" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     if (process.env.NODE_ENV === 'development') {
       console.log("-----------------------------------------");
-      console.log("SSO LOGIN ATTEMPT:", { name, email, hasToken: !!accessToken });
+      console.log("SSO LOGIN ATTEMPT:", { name, email: normalizedEmail, hasToken: !!accessToken });
+    }
+
+    // Early configuration check for security token generation
+    if (!process.env.JWT_SECRET) {
+      console.error("SSO CONFIG ERROR: JWT_SECRET environment variable is missing.");
+      return res.status(500).json({ message: "Server configuration error: Authentication secret is missing." });
     }
 
     // ✅ Email domain restriction
-    if (!isAllowedEmail(email)) {
+    if (!isAllowedEmail(normalizedEmail)) {
       return res.status(400).json({
         message: "Email domain not allowed. Use @finesse-cs.tech or @email.com",
       });
@@ -265,9 +283,11 @@ export const ssoLogin = async (req, res) => {
         graphData = await microsoftGraphService.getProfile(accessToken);
 
         // 2. Handle Profile Photo
-        const photoBuffer = await microsoftGraphService.getProfilePhoto(accessToken);
-        if (photoBuffer) {
-          profileImageUrl = employeeService.saveProfilePhoto(photoBuffer, graphData.microsoftId || email);
+        if (graphData && graphData.email) {
+          const photoBuffer = await microsoftGraphService.getProfilePhoto(accessToken);
+          if (photoBuffer) {
+            profileImageUrl = employeeService.saveProfilePhoto(photoBuffer, graphData.microsoftId || normalizedEmail);
+          }
         }
       } catch (graphError) {
         console.error("Microsoft Graph Sync Error:", graphError.message);
@@ -276,23 +296,32 @@ export const ssoLogin = async (req, res) => {
 
     // Fallback graphData if MS Graph fails or no token
     if (!graphData) {
-      const nameParts = (name || email.split('@')[0]).split(' ');
+      const nameParts = (name || normalizedEmail.split('@')[0]).split(' ');
 
       graphData = {
-        email,
+        email: normalizedEmail,
         firstName: nameParts[0] || "User" || "Employee",
         lastName: nameParts.slice(1).join(' ') || ".",
         microsoftId: null,
       };
+    } else {
+      // Ensure the email matches the normalized one
+      graphData.email = graphData.email.trim().toLowerCase();
     }
 
     // 3. Sync Admin/User record
     const admin = await authService.syncAdminRecord(graphData, profileImageUrl);
+    if (!admin) {
+      return res.status(500).json({ message: "Failed to sync user account record." });
+    }
 
     // 4. Sync Employee record
     const employee = await employeeService.upsertEmployeeFromGraph(graphData, profileImageUrl);
+    if (!employee) {
+      return res.status(404).json({ message: "Failed to sync employee profile record." });
+    }
 
-    // Check Approval Status
+    // Check Employee Approval Status
     if (employee.status === "PENDING") {
       return res.status(403).json({
         message: "Your registration is successful! Your account is currently pending approval by an administrator."
@@ -307,11 +336,26 @@ export const ssoLogin = async (req, res) => {
       return res.status(403).json({ message: "Your account is currently inactive. Please contact your administrator." });
     }
 
+    // Check Admin Approval Status (Defensive Check)
+    if (admin.status === "PENDING") {
+      return res.status(403).json({
+        message: "Your user account is pending approval by an administrator."
+      });
+    }
+    if (admin.status === "REJECTED") {
+      return res.status(403).json({
+        message: `Your user account was rejected. Reason: ${admin.rejectionReason || 'No reason provided.'}`
+      });
+    }
+    if (!admin.isActive) {
+      return res.status(403).json({ message: "Your user account is currently inactive. Please contact your administrator." });
+    }
+
     // 5. Generate Token
     const token = authService.generateToken(admin);
 
     if (process.env.NODE_ENV === 'development') {
-      console.log("SSO LOGIN COMPLETE for", email);
+      console.log("SSO LOGIN COMPLETE for", normalizedEmail);
       console.log("-----------------------------------------");
     }
 
@@ -331,6 +375,18 @@ export const ssoLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("CRITICAL SSO ERROR:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Database validation failed during SSO user synchronization",
+        error: error.message
+      });
+    }
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Database conflict: duplicate record found during synchronization",
+        error: error.message
+      });
+    }
     res.status(500).json({
       message: "SSO Processing Failed",
       error: error.message,

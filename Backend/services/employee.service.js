@@ -10,12 +10,11 @@ class EmployeeService {
     * Prevents duplicate employees during SSO login
       */
     async upsertEmployeeFromGraph(graphData, profileImageUrl) {
-
+        if (!graphData || !graphData.email) {
+            throw new Error("Email is required for employee creation");
+        }
 
         const {
-
-
-
             email,
             firstName,
             lastName,
@@ -32,18 +31,16 @@ class EmployeeService {
             managerEmail
         } = graphData;
 
-        if (!email) {
-            throw new Error("Email is required for employee creation");
-        }
+        const normalizedEmail = email.trim().toLowerCase();
 
         // 1️⃣ Check if employee already exists
-        let employee = await Employee.findOne({ email });
+        let employee = await Employee.findOne({ email: normalizedEmail });
 
         // 2️⃣ Find reporting manager if available
         let reportingManagerId = null;
 
         if (managerEmail) {
-            const manager = await Employee.findOne({ email: managerEmail });
+            const manager = await Employee.findOne({ email: managerEmail.trim().toLowerCase() });
             if (manager) {
                 reportingManagerId = manager._id;
             }
@@ -92,25 +89,58 @@ class EmployeeService {
         }
 
         // 5️⃣ Create new employee
+        // const empId = employeeCode || await this.generateEmployeeId();
+        // const newEmployee = await Employee.create({
+        //     employeeId: empId,
+        //     employeeCode: employeeCode || null, // Also store in auxiliary field for reference
+        //     email,
+        //     ...updateFields,
+        //     dateOfJoining: new Date(),
+        //     employmentType: "FULL_TIME",
+        //     salaryStructure: {
+        //         basicSalary: 0,
+        //         annualSalary: 0
+        //     },
+        //     status: "PENDING",
+        //     isActive: false,
+        //     workLocation: "Onsite",
+        //     shift: "DAY"
+        // });
+        // 5️⃣ Create new employee
         const empId = employeeCode || await this.generateEmployeeId();
-        const newEmployee = await Employee.create({
-            employeeId: empId,
-            employeeCode: employeeCode || null, // Also store in auxiliary field for reference
-            email,
-            ...updateFields,
-            dateOfJoining: new Date(),
-            employmentType: "FULL_TIME",
-            salaryStructure: {
-                basicSalary: 0,
-                annualSalary: 0
-            },
-            status: "PENDING",
-            isActive: false,
-            workLocation: "Onsite",
-            shift: "DAY"
-        });
 
-        return newEmployee;
+        try {
+            const newEmployee = await Employee.create({
+                employeeId: empId,
+                employeeCode: employeeCode || null,
+                email: normalizedEmail,
+                ...updateFields,
+                dateOfJoining: new Date(),
+                employmentType: "FULL_TIME",
+                salaryStructure: {
+                    basicSalary: 0,
+                    annualSalary: 0
+                },
+                status: "PENDING",
+                isActive: false,
+                workLocation: "Onsite",
+                shift: "DAY"
+            });
+
+            return newEmployee;
+        } catch (err) {
+            console.error("Employee creation error:", err);
+
+            // If it's a duplicate key error, return existing employee
+            if (err.code === 11000) {
+                console.log("Duplicate employee found, returning existing");
+                return await Employee.findOne({ email: normalizedEmail });
+            }
+
+            throw err;
+        }
+
+        // return newEmployee;
 
 
     }
@@ -162,32 +192,32 @@ class EmployeeService {
     // }
     saveProfilePhoto(photoBuffer, identifier) {
 
-    if (!photoBuffer) {
-        console.log("⚠️ No profile photo received from Microsoft Graph");
-        return null;
-    }
-
-    try {
-        const fileName = `${identifier.replace(/[@.]/g, "_")}.jpg`;
-
-        const uploadDir = path.join(process.cwd(), "uploads", "profile-photos");
-
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        if (!photoBuffer) {
+            console.log("⚠️ No profile photo received from Microsoft Graph");
+            return null;
         }
 
-        const filePath = path.join(uploadDir, fileName);
+        try {
+            const fileName = `${identifier.replace(/[@.]/g, "_")}.jpg`;
 
-        fs.writeFileSync(filePath, Buffer.from(photoBuffer));
+            const uploadDir = path.join(process.cwd(), "uploads", "profile-photos");
+
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, fileName);
+
+            fs.writeFileSync(filePath, Buffer.from(photoBuffer));
 
 
-        return `/uploads/profile-photos/${fileName}`;
+            return `/uploads/profile-photos/${fileName}`;
 
-    } catch (error) {
-        console.error("Error saving profile photo:", error.message);
-        return null;
+        } catch (error) {
+            console.error("Error saving profile photo:", error.message);
+            return null;
+        }
     }
-}
 
 }
 
