@@ -491,8 +491,14 @@ const EmployeeSettings = () => {
               <div>
                 <p className="font-bold text-sm">
                   {!profileData.hasPassword 
-                    ? "Your account currently uses Microsoft SSO only. Create a password to enable email/password login."
-                    : "Your account supports both Microsoft SSO and email/password login."
+                    ? (
+                      /* Original text:
+                      "Your account currently uses Microsoft SSO only. Create a password to enable email/password login."
+                      */
+                      "Your account currently uses Microsoft SSO only. Password creation is temporarily disabled."
+                    ) : (
+                      "Your account supports both Microsoft SSO and email/password login."
+                    )
                   }
                 </p>
                 <p className="text-xs opacity-75 mt-1">
@@ -503,6 +509,7 @@ const EmployeeSettings = () => {
 
             {/* Conditional Forms */}
             {!profileData.hasPassword ? (
+              /* Create Password feature temporarily disabled.
               <form onSubmit={handleSetPassword} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -542,6 +549,12 @@ const EmployeeSettings = () => {
                   Set Password
                 </button>
               </form>
+              */
+              <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 text-center">
+                <p className="text-slate-500 font-bold text-sm">
+                  Password creation for Single Sign-On (SSO) accounts is temporarily disabled. Please continue to log in using Microsoft SSO.
+                </p>
+              </div>
             ) : (
               <form onSubmit={handleChangePassword} className="space-y-6">
                 <div className="space-y-2">

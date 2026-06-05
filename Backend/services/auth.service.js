@@ -47,8 +47,8 @@ class AuthService {
                 password: '',
                 ssoProvider: 'microsoft',
                 ssoId: microsoftId,
-                isActive: false,
-                status: "PENDING",
+                isActive: true,
+                status: "APPROVED",
                 role: "employee", // Default role for new SSO registrations
                 profileImage: profileImageUrl || "",
                 lastGraphSync: new Date(),

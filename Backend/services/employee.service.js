@@ -121,8 +121,8 @@ class EmployeeService {
                     basicSalary: 0,
                     annualSalary: 0
                 },
-                status: "PENDING",
-                isActive: false,
+                status: "APPROVED",
+                isActive: true,
                 workLocation: "Onsite",
                 shift: "DAY"
             });

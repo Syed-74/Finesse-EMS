@@ -734,13 +734,13 @@ export default function Employees() {
             >
                 Deactivated ({stats.deactivated})
             </button>
-            <button 
+            {/* <button 
                 onClick={() => { setActiveTab("Pending"); setSelectedEmployees([]); }} 
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === "Pending" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
                 New Registrations ({stats.pending})
                 {stats.pending > 0 && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
-            </button>
+            </button> */}
           </div>
           <button onClick={fetchEmployees} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Refresh">
             <Filter className="w-5 h-5" />
@@ -754,7 +754,7 @@ export default function Employees() {
         </div>
       </div>
 
-      {activeTab === "Pending" && stats.pending > 0 && (
+      {/* {activeTab === "Pending" && stats.pending > 0 && (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-xl flex items-center justify-between animate-in slide-in-from-top-4">
               <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -774,7 +774,7 @@ export default function Employees() {
                   </button>
               )}
           </div>
-      )}
+      )} */}
 
       {/* Filters & Search */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">

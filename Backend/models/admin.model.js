@@ -67,13 +67,13 @@ const adminSchema = new mongoose.Schema(
 
     isActive: {
       type: Boolean,
-      default: false,
+      default: true,
     },
 
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED"],
-      default: "PENDING",
+      default: "APPROVED",
     },
 
     approvedBy: {
